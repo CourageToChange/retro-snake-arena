@@ -1,0 +1,14 @@
+node_modules/
+npm-debug.log*
+.idea/
+.chrome-e2e/
+.chrome-e2e-profile*/
+.playwright-browsers/
+
+leaderboard.sqlite
+leaderboard.sqlite-shm
+leaderboard.sqlite-wal
+
+.env
+.DS_Store
+Thumbs.db

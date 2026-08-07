@@ -1,0 +1,41 @@
+Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+
+Copyright (c) 2026 Noorun Nobi
+
+This licence covers the CREATIVE ASSETS in this repository — artwork, icons,
+generated audio and other original media. It does NOT cover the source code,
+which is licensed under the MIT License. See LICENSE.
+
+You are free to:
+  - Share — copy and redistribute the material in any medium or format.
+  - Adapt — remix, transform, and build upon the material.
+
+Under the following terms:
+  - Attribution — You must give appropriate credit, provide a link to this
+    notice, and indicate if changes were made.
+  - NonCommercial — You may NOT use the material for commercial purposes.
+
+No warranties are given. The material is provided "as is", without warranty of
+any kind, express or implied. The author is not liable for any claim, damages,
+or other liability arising from the use of these assets.
+
+This is a human-readable summary of (and not a substitute for) the full license.
+The full legal text of the Creative Commons Attribution-NonCommercial 4.0
+International License is available at:
+
+  https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+---
+
+Third-party asset: "Press Start 2P" webfont (public/fonts/press-start-2p.woff2)
+
+Copyright 2012 The Press Start 2P Project Authors, with Reserved Font Name
+"Press Start 2P".
+
+Licensed under the SIL Open Font License, Version 1.1 (OFL-1.1), which
+permits self-hosting, bundling, and commercial/public display. The full
+licence text ships alongside the font at public/fonts/OFL-press-start-2p.txt.
+
+The file is a subset (Latin letters, digits and the punctuation the game
+renders) built from the upstream release, served self-hosted — no font CDN.
+The OFL licence above, not CC BY-NC, governs this file.

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Retro Snake Arena</title>
+  <rect width="512" height="512" rx="96" fill="#05070a"/>
+  <path d="M112 160h208c44.2 0 80 35.8 80 80v112H184v-64h120v-48H112z" fill="#46f2a4"/>
+  <path d="M112 160h208c44.2 0 80 35.8 80 80v36H304v-36H112z" fill="#56c7ff" opacity=".45"/>
+  <rect x="332" y="302" width="28" height="28" rx="4" fill="#05070a"/>
+  <path d="M144 384h224" stroke="#ffcf5a" stroke-width="28" stroke-linecap="round"/>
+</svg>

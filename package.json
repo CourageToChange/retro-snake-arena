@@ -1,0 +1,27 @@
+{
+  "name": "retro-snake-arena",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Retro Snake arena with solo play.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check server/auth.js && node --check server/database.js && node --check server/integrity.js && node --check server/rateLimiter.js && node --check public/auth.js && node --check public/client.js && node --check public/classicAdventure.js && node --check public/launcher.js && node --check public/arena/arenaRules.js && node --check public/arena/arena.js && node --check public/sw.js && node --check scripts/smoke-test.js && node --check scripts/e2e-test.js && node --check scripts/validate-app-assets.js && npm run validate:assets",
+    "validate:assets": "node scripts/validate-app-assets.js",
+    "test:smoke": "node scripts/smoke-test.js",
+    "test:e2e": "node scripts/e2e-test.js",
+    "android:debug": "cd android && gradlew.bat :app:assembleDebug",
+    "android:release": "cd android && gradlew.bat :app:assembleRelease",
+    "test": "npm run check && npm run test:smoke && npm run test:e2e"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
+}

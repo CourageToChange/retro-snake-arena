@@ -1,0 +1,1673 @@
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("/fonts/press-start-2p.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  /* This file is a SUBSET of the upstream OFL release, cut down to the glyphs the
+     game actually draws. Declaring the exact coverage documents that the subsetting
+     is intentional and in scope, which is how the OFL expects a Modified Version to
+     keep a Reserved Font Name. Licence ships at /fonts/OFL-press-start-2p.txt. */
+  unicode-range: U+0020-007E, U+00B7, U+00D7, U+2013-2014, U+2018-2019, U+201C-201D, U+2026, U+2191, U+2193;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #05070a;
+  --panel: #101721;
+  --panel-2: #172232;
+  --panel-3: #0a1017;
+  --text: #edf7ff;
+  --muted: #91a4b5;
+  --line: #2a4053;
+  /* Borders on interactive controls must reach 3:1 against the surfaces they
+     sit on (WCAG 2.2 non-text contrast); --line stays for decorative rules. */
+  --control-line: #5b7a96;
+  --accent: #46f2a4;
+  --accent-2: #ffcf5a;
+  --danger: #ff5d73;
+  --blue: #56c7ff;
+  --mode-arena: #46f2a4;
+  --mode-classic: #ffcf5a;
+  --mode-rune: #a88cff;
+  --focus-ring: #9adfff;
+  --radius: 10px;
+  --font-arcade: "Press Start 2P", "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Make the `hidden` attribute reliable even on elements that set display
+   (e.g. .setup / .game-wrap use display:grid, which would otherwise win). */
+[hidden] {
+  display: none !important;
+}
+
+/* Touch-only settings (joystick/arrows, left-handed) are useless with a mouse —
+   hide them on desktop/fine-pointer devices. */
+@media (pointer: fine) and (hover: hover) {
+  .touch-only {
+    display: none !important;
+  }
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    radial-gradient(circle at 20% 8%, rgba(70, 242, 164, 0.12), transparent 34%),
+    radial-gradient(circle at 80% 0%, rgba(255, 93, 115, 0.11), transparent 30%),
+    var(--bg);
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
+  color: var(--text);
+  font-family: var(--font-arcade);
+  font-size: 13px;
+}
+
+html,
+body {
+  width: 100%;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+  border: 1px solid var(--control-line);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #1c2a3b, #111a25);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+button:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 18px rgba(70, 242, 164, 0.14);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+  box-shadow: none;
+}
+
+button:disabled:hover {
+  border-color: var(--line);
+  transform: none;
+  box-shadow: none;
+}
+
+input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--control-line);
+  border-radius: 6px;
+  background: #081018;
+  color: var(--text);
+  padding: 0 12px;
+  text-transform: uppercase;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(86, 199, 255, 0.14);
+  outline: 0;
+}
+
+.shell {
+  width: min(760px, calc(100vw - 32px));
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: 22px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  justify-items: center;
+}
+
+.landing {
+  width: 100%;
+  max-width: 440px;
+  justify-self: center;
+}
+
+.panel,
+.game-wrap {
+  border: 1px solid rgba(86, 199, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(16, 23, 33, 0.92);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.setup {
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-size: 0.78rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  line-height: 0.96;
+}
+
+.lede {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.auth-panel {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.auth-row,
+.auth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.google-signin {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  max-width: 300px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* Defensive: never let the Google button (or a fallback render) blow up to fill
+   the panel. Caps any stray SVG/IMG and the GSI wrapper to a sane size. */
+.google-signin > div,
+.google-signin iframe {
+  max-width: 100%;
+}
+
+.google-signin svg,
+.google-signin img {
+  max-height: 40px;
+  width: auto;
+}
+
+/* Account widget pinned to the top-right corner of the screen. */
+.auth-corner {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+body.is-playing .auth-corner {
+  display: none;
+}
+
+.auth-corner .auth-message {
+  margin: 0;
+  font-size: 0.72rem;
+  text-align: right;
+  max-width: 220px;
+}
+
+.auth-corner .auth-signed-in {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid rgba(86, 199, 255, 0.3);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(22, 32, 46, 0.92), rgba(8, 14, 22, 0.94));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #e8f2ff;
+  font-size: 0.82rem;
+  max-width: 60vw;
+}
+
+.auth-corner .auth-signed-in span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+
+.auth-corner .auth-signed-in button {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 0.74rem;
+  border-radius: 999px;
+}
+
+/* "Sign in with Google" button (official logo) — dark, themed, compact. Shown
+   when the GSI button can't render (e.g. local dev) and matches the GSI look. */
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(86, 199, 255, 0.32);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(22, 32, 46, 0.92), rgba(8, 14, 22, 0.94));
+  color: #e8f2ff;
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.google-btn:hover {
+  border-color: rgba(86, 199, 255, 0.6);
+  box-shadow: 0 0 22px rgba(86, 199, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.google-btn:active {
+  transform: translateY(0);
+}
+
+.google-btn .google-g {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.google-btn .g-text {
+  white-space: nowrap;
+}
+
+/* On phones the corner sign-in becomes a clean icon-only circle. */
+@media (max-width: 620px) {
+  .google-btn {
+    width: 42px;
+    height: 42px;
+    min-height: 42px;
+    padding: 0;
+    gap: 0;
+    border-radius: 50%;
+  }
+  .google-btn .g-text {
+    display: none;
+  }
+}
+
+/* Score summary line on the menu. */
+.best-line {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.best-line strong {
+  color: var(--accent-2);
+}
+
+.auth-hint {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.auth-panel input {
+  min-height: 40px;
+  text-transform: none;
+}
+
+.auth-actions button,
+.auth-signed-in button {
+  min-height: 40px;
+}
+
+.auth-signed-in {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+}
+
+.auth-signed-in[hidden] {
+  display: none;
+}
+
+.auth-signed-in span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-message {
+  min-height: 18px;
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+
+.auth-message.error {
+  color: var(--danger);
+}
+
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.skin {
+  aspect-ratio: 1;
+  min-height: 54px;
+  padding: 5px;
+}
+
+.skin.active {
+  border-color: var(--accent-2);
+  background: #24200d;
+  box-shadow: 0 0 18px rgba(255, 207, 90, 0.18);
+}
+
+.skin span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--skin-a, #46f2a4) 0 8px, var(--skin-b, #56c7ff) 8px 16px);
+}
+
+.setup-settings {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.setup-settings > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  list-style: none;
+}
+
+.setup-settings[open] > summary {
+  margin-bottom: 2px;
+}
+
+.setup-settings select {
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.toggle input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
+}
+
+.status {
+  min-height: 22px;
+  margin: 0;
+  color: var(--accent-2);
+}
+
+.game-wrap {
+  min-width: 0;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+/* In-game rail: stats on the left, the pause control dead centre (the only
+   position that is symmetric across the left/right-handed mirror), sound on
+   the right. */
+.game-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.rail-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.rail-stat {
+  min-width: 0;
+  border: 1px solid var(--control-line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: rgba(8, 16, 24, 0.9);
+}
+
+.rail-stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+.rail-stat strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.rail-btn {
+  width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border: 1px solid var(--control-line);
+  border-radius: 8px;
+  background: rgba(8, 16, 24, 0.9);
+  font-size: 0.72rem;
+}
+
+.pause-btn {
+  justify-self: center;
+  color: var(--accent-2);
+  border-color: rgba(255, 207, 90, 0.65);
+  letter-spacing: 0;
+}
+
+.pause-btn:hover {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 18px rgba(255, 207, 90, 0.22);
+}
+
+.icon-button {
+  justify-self: end;
+}
+
+/* The board stage is the flex middle of the shell: the canvas is sized by JS
+   from THIS box (viewport-driven), never from whatever the HUD left over. */
+.board-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The single overlay slot: pause / result, mutually exclusive. */
+.overlay-slot {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(3, 6, 9, 0.72);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.overlay-slot[hidden] {
+  display: none;
+}
+
+.overlay-card {
+  width: min(420px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  padding: clamp(16px, 4vw, 26px);
+  border: 1px solid var(--control-line);
+  border-radius: 14px;
+  background: rgba(16, 23, 33, 0.96);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.overlay-card h2 {
+  margin: 0;
+  font-size: clamp(1.1rem, 5vw, 1.6rem);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.overlay-card .mode-tag {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.overlay-card .mode-tag strong {
+  color: var(--text);
+}
+
+.result-score {
+  display: grid;
+  gap: 4px;
+}
+
+.result-score span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.result-score strong {
+  color: var(--accent);
+  font-size: clamp(1.6rem, 8vw, 2.4rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 0 18px rgba(70, 242, 164, 0.5);
+}
+
+.result-best {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.result-best.record {
+  padding: 3px 11px;
+  border: 1px solid rgba(255, 207, 90, 0.6);
+  border-radius: 999px;
+  background: rgba(255, 207, 90, 0.14);
+  color: #ffe08a;
+  text-transform: uppercase;
+}
+
+.overlay-actions {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+}
+
+.overlay-actions button {
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.overlay-actions .primary-action {
+  border: 0;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  color: #03210f;
+}
+
+.danger-btn,
+.overlay-actions .danger-btn {
+  border-color: rgba(255, 93, 115, 0.65);
+  color: #ff9fb0;
+}
+
+.danger-btn.confirming,
+.overlay-actions .danger-btn.confirming {
+  background: rgba(255, 93, 115, 0.22);
+  border-color: var(--danger);
+  color: #ffdce3;
+}
+
+.overlay-notice {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+canvas {
+  width: min(100%, 768px);
+  justify-self: center;
+  max-height: min(72vh, 820px);
+  aspect-ratio: 1;
+  display: block;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #030609;
+  image-rendering: pixelated;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+body.is-playing {
+  overflow: hidden;
+  touch-action: none;
+}
+
+body.is-playing .shell {
+  width: 100vw;
+  max-width: none;
+  height: 100svh;
+  min-height: 100svh;
+  margin: 0;
+  padding: clamp(8px, 1.2vmin, 16px);
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+@supports (height: 100dvh) {
+  body.is-playing .shell {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+body.is-playing .setup {
+  display: none;
+}
+
+body.is-playing .game-wrap {
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
+}
+
+body.is-playing #board {
+  max-width: 100%;
+  max-height: none;
+  align-self: center;
+}
+
+canvas.level-flash {
+  animation: canvasFlash 800ms ease;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr auto 150px;
+  gap: 10px;
+  align-items: center;
+}
+
+.scoreboard {
+  min-height: 70px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.score {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 6px;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.score.changed {
+  animation: scorePulse 520ms ease;
+}
+
+.score.dead strong {
+  text-decoration: line-through;
+}
+
+.score strong {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--skin-a, #46f2a4), var(--skin-b, #56c7ff));
+}
+
+.badge {
+  border: 1px solid rgba(255, 93, 115, 0.55);
+  border-radius: 999px;
+  color: var(--danger);
+  padding: 1px 6px;
+  font-size: 0.72rem;
+}
+
+.pad {
+  display: none;
+}
+
+#restartBtn {
+  justify-self: end;
+  width: min(150px, 100%);
+}
+
+@keyframes scorePulse {
+  0% {
+    background: rgba(255, 207, 90, 0);
+    border-color: transparent;
+  }
+  30% {
+    background: rgba(255, 207, 90, 0.25);
+    border-color: rgba(255, 207, 90, 0.7);
+  }
+  100% {
+    background: rgba(255, 207, 90, 0);
+    border-color: transparent;
+  }
+}
+
+@keyframes canvasFlash {
+  0%, 100% {
+    border-color: var(--line);
+    box-shadow: none;
+  }
+  35% {
+    border-color: var(--level-accent, var(--accent-2));
+    box-shadow: 0 0 30px color-mix(in srgb, var(--level-accent, var(--accent-2)) 35%, transparent);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .pad {
+    justify-self: center;
+    width: 204px;
+    display: grid;
+    grid-template-columns: repeat(3, 64px);
+    grid-template-rows: repeat(3, 64px);
+    gap: 6px;
+  }
+
+  .pad button {
+    width: 64px;
+    min-height: 64px;
+    border-radius: 999px;
+    font-size: 1.35rem;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+  }
+
+  .pad [data-dir="up"] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .pad [data-dir="left"] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .pad [data-dir="down"] {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .pad [data-dir="right"] {
+    grid-column: 3;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 980px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .pad,
+  #restartBtn {
+    justify-self: center;
+  }
+}
+
+@media (max-width: 620px) {
+  .shell {
+    width: min(100vw - 18px, 1240px);
+    padding: 10px 0;
+  }
+
+  .setup,
+  .game-wrap {
+    padding: 10px;
+  }
+
+  /* Declutter the start screen on phones so the play button is front and centre. */
+  .setup { gap: 10px; }
+  .setup .lede { display: none; }
+  .setup .eyebrow { display: none; }
+
+  .game-rail {
+    gap: 6px;
+  }
+
+  .rail-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  /* Level + Best stay visible; Mode/Status remain in the DOM (tests and
+     screen readers) but leave the narrow rail to the two live numbers. */
+  .rail-stat:first-child,
+  .rail-stat:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .rail-btn {
+    width: 48px;
+    min-height: 48px;
+  }
+
+  /* Squeeze the horizontal chrome in play so the 32-cell board gets the
+     width: 360px phone -> 360 - 8 (shell) - 12 (wrap) - 2 (border) = 338px,
+     ~10.5px per cell (UX-01). */
+  body.is-playing .shell {
+    padding: 4px;
+  }
+
+  body.is-playing .game-wrap {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  body.is-playing .scoreboard {
+    min-height: 0;
+  }
+
+  .skin-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Landscape phones: height is the scarce resource, so the controls move into a
+   column beside the board instead of competing with it for vertical space.
+   Everything stays on screen — no scrolling (body.is-playing hides overflow). */
+@media (orientation: landscape) and (max-height: 560px) {
+  body.is-playing .shell {
+    padding: 6px;
+  }
+
+  body.is-playing .game-wrap {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 6px 10px;
+    padding: 8px;
+  }
+
+  body.is-playing .game-rail {
+    grid-column: 1 / -1;
+  }
+
+  body.is-playing .rail-stat {
+    padding: 3px 7px;
+  }
+
+  body.is-playing .rail-btn {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  body.is-playing .board-stage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  body.is-playing .controls {
+    grid-column: 2;
+    grid-row: 2;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-content: center;
+    justify-items: center;
+  }
+
+  body.is-playing .scoreboard {
+    min-height: 0;
+  }
+
+  body.is-playing .classic-actions {
+    justify-items: center;
+  }
+
+  body.is-playing .classic-actions #restartBtn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.is-playing canvas {
+    max-height: none;
+  }
+}
+
+/* ===================== Clean landing + Single Player setup ===================== */
+
+.brand {
+  text-align: center;
+}
+
+.brand h1 {
+  font-size: clamp(1.6rem, 7vw, 2.6rem);
+  line-height: 1.04;
+  letter-spacing: 1px;
+}
+
+.brand .lede {
+  margin: 10px 0 0;
+}
+
+/* Primary Single Player button. */
+.mode-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.mode-cta {
+  width: 100%;
+  min-height: 62px;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  border: none;
+  border-radius: 14px;
+  color: #03210f;
+  background: linear-gradient(135deg, #46f2a4, #56c7ff);
+  box-shadow: 0 0 24px rgba(70, 242, 164, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.mode-cta:hover {
+  transform: translateY(-1px);
+  border-color: transparent;
+  box-shadow: 0 0 32px rgba(86, 199, 255, 0.5);
+}
+
+.mode-cta.primary {
+  margin-top: 4px;
+}
+
+/* Single Player setup step. */
+.sp-setup {
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  justify-self: center;
+}
+
+/* On desktop the setup is a roomy two-column card instead of a phone strip. */
+@media (min-width: 760px) {
+  .sp-setup {
+    max-width: 720px;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 28px;
+    row-gap: 16px;
+    align-items: start;
+  }
+  .sp-back,
+  .sp-title,
+  .sp-preview,
+  .sp-setup #spPlayBtn,
+  .sp-setup .status {
+    grid-column: 1 / -1;
+  }
+  .sp-preview {
+    padding: 16px;
+  }
+  .sp-setup #headPreview {
+    width: 300px;
+    height: 170px;
+  }
+}
+
+.sp-setup[hidden] {
+  display: none;
+}
+
+.sp-back {
+  justify-self: start;
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 0.9rem;
+  background: rgba(8, 16, 24, 0.7);
+}
+
+.sp-title {
+  margin: 0;
+  font-size: clamp(1.3rem, 5vw, 1.8rem);
+  letter-spacing: 1px;
+}
+
+.sp-preview {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 38%, rgba(86, 199, 255, 0.1), rgba(3, 6, 9, 0.55));
+}
+
+#headPreview {
+  width: 240px;
+  height: 160px;
+  max-width: 100%;
+  image-rendering: auto;
+  border: 0;
+  background: transparent;
+}
+
+.field > span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Head picker shows a small canvas preview per shape. */
+.arena-head-choice {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 6px 4px 4px;
+  min-height: auto;
+}
+
+.arena-head-choice canvas {
+  display: block;
+  width: 100%;
+  height: 40px;
+}
+
+.arena-head-choice .head-label {
+  font-size: 11px;
+}
+
+/* Hide the landing + setup panels while a game is running. */
+body.is-playing .landing,
+body.is-playing .sp-setup {
+  display: none;
+}
+
+/* ===================== Approved three-mode landing ===================== */
+
+body {
+  line-height: 1.45;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+/* Two-tone focus ring: a dark core ring plus a light halo, so a visible 3:1
+   boundary exists on BOTH light accent buttons and dark panels (the old single
+   #9adfff ring measured ~1:1 on the accent-green Play button). */
+:focus-visible {
+  outline: 3px solid #04080c;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--focus-ring), 0 0 14px rgba(154, 223, 255, 0.55);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -52px;
+  left: 12px;
+  z-index: 200;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-decoration: none;
+  transition: top 120ms ease;
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+}
+
+.page {
+  width: min(1120px, calc(100vw - 24px));
+  margin: 0 auto;
+  padding: 14px 0 40px;
+}
+
+.topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 18px;
+}
+
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+}
+
+.site-brand svg {
+  flex: 0 0 auto;
+}
+
+.topbar .auth-corner {
+  position: static;
+  z-index: auto;
+  align-items: flex-end;
+  flex: 0 0 auto;
+}
+
+.topbar .auth-message {
+  max-width: 240px;
+  min-height: 0;
+}
+
+.topbar .auth-message:empty {
+  display: none;
+}
+
+.signin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(86, 199, 255, 0.32);
+  background: linear-gradient(180deg, rgba(22, 32, 46, 0.92), rgba(8, 14, 22, 0.94));
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.signin:hover {
+  border-color: rgba(86, 199, 255, 0.6);
+  box-shadow: 0 0 22px rgba(86, 199, 255, 0.3);
+}
+
+.shell {
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+  justify-items: stretch;
+}
+
+.mode-select {
+  min-width: 0;
+}
+
+.section-label {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.modes {
+  display: grid;
+  gap: 14px;
+}
+
+button.mode-card {
+  --mode-c: var(--mode-arena);
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+}
+
+button.mode-card:hover,
+button.mode-card:active {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.mode-card .card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 112px;
+  padding: 16px 18px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius);
+  background: rgba(16, 23, 33, 0.92);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.mode-card:hover .card {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--mode-c) 65%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--mode-c) 18%, transparent);
+}
+
+.mode-card:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+
+.mode-card:focus-visible .card {
+  outline: 3px solid #04080c;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--focus-ring), 0 0 14px rgba(154, 223, 255, 0.55);
+}
+
+.mode-card.selected .card {
+  border-color: var(--mode-c);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--mode-c) 12%, var(--panel)), var(--panel));
+  box-shadow: 0 0 26px color-mix(in srgb, var(--mode-c) 26%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.mode-card .tile {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--mode-c) 45%, transparent);
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--mode-c) 20%, transparent), rgba(3, 6, 9, 0.6));
+}
+
+.mode-copy {
+  display: block;
+  min-width: 0;
+}
+
+.mode-name {
+  display: block;
+  color: var(--text);
+  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chips > span {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  letter-spacing: 1px;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.mode-score {
+  display: block;
+  min-height: 1.35em;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.mode-score strong {
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.mode-card .go {
+  color: color-mix(in srgb, var(--mode-c) 80%, var(--text));
+  font-size: 1.3rem;
+  transition: transform 160ms ease;
+}
+
+.mode-card:hover .go,
+.mode-card.selected .go {
+  transform: translateX(3px);
+}
+
+.mode-arena {
+  --mode-c: var(--mode-arena) !important;
+}
+
+.mode-classic {
+  --mode-c: var(--mode-classic) !important;
+}
+
+.mode-rune {
+  --mode-c: var(--mode-rune) !important;
+}
+
+.sp-setup.setup-panel {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  padding: 22px;
+  border-radius: var(--radius);
+}
+
+.sp-setup.setup-panel > * {
+  grid-column: 1;
+}
+
+.sp-setup.setup-panel .sp-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.sp-setup.setup-panel .sp-preview {
+  min-height: 120px;
+  padding: 0;
+  border-radius: var(--radius);
+  background: radial-gradient(circle at 50% 38%, rgba(86, 199, 255, 0.1), rgba(3, 6, 9, 0.55));
+}
+
+.sp-setup.setup-panel #headPreview {
+  width: min(100%, 240px);
+  height: 120px;
+}
+
+.choice-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field > span,
+.choice-field legend {
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.sp-setup .skin-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.sp-setup .skin {
+  min-height: 48px;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.sp-setup .arena-head-picker {
+  grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
+  margin: 0;
+}
+
+.sp-setup .arena-head-choice {
+  min-height: 58px;
+  border-radius: 8px;
+  background: rgba(3, 6, 9, 0.48);
+}
+
+.sp-setup .arena-head-choice.active {
+  border-color: var(--accent);
+  background: rgba(70, 242, 164, 0.12);
+}
+
+.sp-setup .setup-settings select {
+  min-height: 44px;
+}
+
+.sp-setup .toggle {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.sp-setup .toggle input {
+  width: 24px;
+  min-height: 24px;
+}
+
+.sp-setup .mode-cta {
+  min-height: 58px;
+  margin-top: 0;
+  border: 0;
+  border-radius: 12px;
+  color: #03210f;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  box-shadow: 0 0 24px rgba(70, 242, 164, 0.3);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.hint kbd {
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-3);
+  color: var(--text);
+  font: inherit;
+}
+
+.classic-actions {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.score-notice {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+.classic-actions #restartBtn {
+  width: min(150px, 100%);
+}
+
+body.is-playing .page {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
+body.is-playing .topbar,
+body.is-playing .mode-select,
+body.is-playing .setup-panel {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .shell {
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    gap: 34px;
+  }
+
+  .mode-select {
+    margin-top: 6px;
+  }
+}
+
+@media (max-width: 620px) {
+  .page {
+    width: min(100vw - 18px, 1120px);
+    padding-top: 8px;
+  }
+
+  .shell {
+    width: 100%;
+    padding: 0;
+  }
+
+  .sp-setup.setup-panel {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .signin {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .signin .signin-text {
+    display: none;
+  }
+
+  .site-brand {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .mode-card .card {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    gap: 11px;
+    min-height: 102px;
+    padding: 13px 12px;
+  }
+
+  .mode-card .tile {
+    width: 52px;
+    height: 52px;
+  }
+
+  .chips {
+    gap: 4px;
+  }
+
+  .chips > span {
+    padding-inline: 6px;
+    font-size: 0.61rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

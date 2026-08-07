@@ -1,0 +1,22 @@
+.git
+node_modules
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.idea
+android
+.chrome-e2e-profile
+.playwright-browsers
+npm-debug.log
+
+# Documentation and runbooks must NOT ship inside the internet-facing image.
+# Several of these map the homelab (Proxmox host IP, SSH key, firewall topology)
+# and would aid lateral movement if the container were ever compromised. The
+# server serves public/ only and imports no markdown at runtime, so excluding
+# every doc is safe. LICENSE / ASSETS-LICENSE (no extension) still ship.
+*.md
+**/*.md
+*.pdf
+# PM staging artifacts that must never reach a built image.
+DESIGN-*.html
+_worker-notes

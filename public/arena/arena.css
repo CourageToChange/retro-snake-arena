@@ -1,0 +1,982 @@
+/* Arena (.io) mode — Phase 1 styles. Mostly scoped under #arenaRoot so it
+   cannot affect the Classic game UI. */
+
+.arena-head-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  gap: 7px;
+  margin: 8px 0 12px;
+}
+
+.arena-head-choice {
+  min-height: 36px;
+  border: 1px solid rgba(86, 199, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(3, 6, 9, 0.48);
+  color: #edf7ff;
+  font-family: var(--font-arcade, "Courier New", monospace);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.arena-head-choice:hover,
+.arena-head-choice.active {
+  border-color: rgba(70, 242, 164, 0.75);
+  background: rgba(70, 242, 164, 0.16);
+  color: #46f2a4;
+}
+
+#arenaRoot {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100svh;
+  z-index: 50;
+  background: #04070d;
+  overflow: hidden;
+  font-family: var(--font-arcade, "Courier New", monospace);
+  color: #edf7ff;
+}
+
+@supports (height: 100dvh) {
+  #arenaRoot {
+    height: 100dvh;
+  }
+}
+
+#arenaRoot[hidden] {
+  display: none;
+}
+
+#arenaCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  image-rendering: auto;
+  cursor: none; /* we draw our own reticle in arena.js */
+  touch-action: none;
+}
+
+/* On the death screen, bring the real mouse cursor back so the player can find
+   and click Respawn / Main Menu (the death overlay is pointer-events:none, so
+   the cursor falls through to the canvas — set it everywhere to be safe). */
+#arenaRoot.show-cursor,
+#arenaRoot.show-cursor #arenaCanvas,
+#arenaRoot .arena-death {
+  cursor: default;
+}
+
+/* HUD */
+.arena-hud {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.arena-score-box {
+  background: rgba(3, 6, 9, 0.58);
+  border: 1px solid rgba(86, 199, 255, 0.28);
+  border-radius: 10px;
+  padding: 7px 12px;
+  min-width: 92px;
+}
+
+.arena-score-box .arena-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #94a8b8;
+  text-transform: uppercase;
+}
+
+.arena-score-box .arena-value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #46f2a4;
+  text-shadow: 0 0 12px rgba(70, 242, 164, 0.6);
+}
+
+.arena-effects {
+  margin-top: 6px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #ffd23f;
+  min-height: 14px;
+  white-space: nowrap;
+}
+
+.arena-ammo {
+  margin-top: 4px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #ff8c1a;
+}
+
+.arena-ammo span {
+  font-weight: bold;
+  color: #ffd23f;
+}
+
+.arena-combo {
+  margin-top: 4px;
+  min-height: 14px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #ffcf5a;
+  text-shadow: 0 0 10px rgba(255, 207, 90, 0.45);
+}
+
+/* Sensitivity slider on the start screen. */
+.arena-setting {
+  gap: 6px;
+}
+
+.arena-setting input[type="range"] {
+  width: 100%;
+  accent-color: #46f2a4;
+  cursor: pointer;
+}
+
+.arena-leaderboard {
+  background: rgba(3, 6, 9, 0.58);
+  border: 1px solid rgba(86, 199, 255, 0.28);
+  border-radius: 10px;
+  padding: 7px 11px;
+  min-width: 138px;
+}
+
+.arena-leaderboard .arena-label {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #94a8b8;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+#arenaRanks,
+#arenaBest {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.arena-rank {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.arena-rank-pos {
+  width: 16px;
+  color: #ffcf5a;
+  font-weight: bold;
+}
+
+.arena-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--arena-dot, #46f2a4);
+}
+
+.arena-rank-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arena-rank-score {
+  color: #56c7ff;
+  font-weight: bold;
+}
+
+.arena-rank.arena-me .arena-rank-name {
+  color: #46f2a4;
+  font-weight: bold;
+}
+
+/* Current biome name, centred at the top. */
+.arena-biome {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  font-family: var(--font-arcade, "Courier New", monospace);
+  font-size: 15px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(237, 247, 255, 0.7);
+  text-shadow: 0 0 12px rgba(86, 199, 255, 0.5);
+  pointer-events: none;
+}
+
+.arena-fps {
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 40px);
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 60;
+  min-width: 78px;
+  padding: 6px 10px;
+  border: 1px solid rgba(70, 242, 164, 0.35);
+  border-radius: 8px;
+  background: rgba(3, 6, 9, 0.72);
+  color: #46f2a4;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.arena-settings-toggle {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(20, 30, 44, 0.82), rgba(6, 12, 20, 0.86));
+  border: 1px solid rgba(86, 199, 255, 0.5);
+  color: #bfe6ff;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.arena-settings-toggle:hover {
+  background: rgba(86, 199, 255, 0.16);
+  box-shadow: 0 0 22px rgba(86, 199, 255, 0.38);
+  transform: rotate(45deg);
+}
+
+.arena-settings-panel {
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 40px);
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 75;
+  display: grid;
+  gap: 9px;
+  min-width: 190px;
+  padding: 12px;
+  border: 1px solid rgba(86, 199, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(3, 6, 9, 0.88);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
+  font-size: 13px;
+}
+
+.arena-settings-panel[hidden] {
+  display: none;
+}
+
+.arena-settings-panel label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #edf7ff;
+}
+
+.arena-settings-panel input,
+.arena-settings-panel select {
+  accent-color: #46f2a4;
+}
+
+.arena-settings-panel select {
+  border: 1px solid rgba(86, 199, 255, 0.28);
+  border-radius: 6px;
+  background: rgba(3, 6, 9, 0.72);
+  color: #edf7ff;
+  font: inherit;
+  padding: 4px 8px;
+}
+
+/* The single overlay slot: tutorial, pause and result are mutually exclusive
+   siblings inside it. The slot itself never intercepts touches — only a
+   visible overlay does. */
+.arena-overlay-slot {
+  position: absolute;
+  inset: 0;
+  z-index: 78;
+  pointer-events: none;
+}
+
+.arena-overlay-slot > * {
+  pointer-events: auto;
+}
+
+/* Pause control: top centre — the one spot outside both steering halves and
+   symmetric across the left/right-handed mirror (UX-04). */
+.arena-pause-btn {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 207, 90, 0.7);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 30, 44, 0.82), rgba(6, 12, 20, 0.86));
+  color: #ffcf5a;
+  font-size: 15px;
+  line-height: 1;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.arena-pause-btn:hover {
+  border-color: #ffcf5a;
+  box-shadow: 0 0 22px rgba(255, 207, 90, 0.35);
+}
+
+.arena-pause-btn[aria-pressed="true"] {
+  background: rgba(255, 207, 90, 0.22);
+}
+
+/* Pause overlay (shares the slot with the tutorial and the result dialog). */
+.arena-pause {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+           max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(3, 6, 9, 0.74);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.arena-pause[hidden] {
+  display: none;
+}
+
+.arena-pause-card {
+  font-family: var(--font-arcade, "Courier New", monospace);
+}
+
+.arena-pause-card .overlay-actions button.confirming {
+  background: rgba(255, 93, 115, 0.22);
+  border-color: #ff5d73;
+  color: #ffdce3;
+}
+
+.arena-hint {
+  position: absolute;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  z-index: 80;
+  width: min(520px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(70, 242, 164, 0.42);
+  border-radius: 12px;
+  background: rgba(3, 6, 9, 0.88);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.4);
+  color: #edf7ff;
+  font-size: 14px;
+}
+
+.arena-hint[hidden] {
+  display: none;
+}
+
+/* On touch devices the tutorial must never swallow steering drags: it sits
+   over the play area, and once the fonts settle it can cover half the screen.
+   Let touches fall through to the canvas; only the dismiss button stays
+   tappable. Desktop keeps the click-absorbing card so clicks don't fire
+   rockets through it. */
+@media (pointer: coarse) {
+  .arena-hint { pointer-events: none; }
+  .arena-hint button { pointer-events: auto; }
+}
+
+.arena-hint-title {
+  color: #46f2a4;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.arena-hint button {
+  justify-self: end;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border: 1px solid rgba(70, 242, 164, 0.5);
+  border-radius: 8px;
+  background: rgba(70, 242, 164, 0.14);
+  color: #46f2a4;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Current solo objective / challenge. */
+.arena-solo-objective {
+  background: rgba(3, 6, 9, 0.6);
+  border: 1px solid rgba(255, 210, 63, 0.35);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #ffd23f;
+  max-width: 220px;
+}
+
+/* On-screen BOOST/FIRE buttons. Hidden by default; shown on touch devices.
+   They live on the ACTION side (right by default) while steering is confined to
+   the opposite side, so one thumb steers and the other works the buttons. */
+.arena-touch-controls {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  /* Default (right-handed): steer on the RIGHT, so BOOST/FIRE live on the LEFT. */
+  .arena-touch-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: absolute;
+    left: max(20px, env(safe-area-inset-left));
+    bottom: calc(max(22px, env(safe-area-inset-bottom)) + 64px);
+    z-index: 70;
+  }
+  /* Left-handed: steer on the LEFT, so the action buttons move to the RIGHT. */
+  #arenaRoot.arena-left .arena-touch-controls {
+    left: auto;
+    right: max(20px, env(safe-area-inset-right));
+  }
+}
+
+.arena-touch-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.82), rgba(4, 8, 13, 0.86));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #eaf6ff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: var(--font-arcade, "Courier New", monospace);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  transition: transform 0.06s ease, filter 0.06s ease, box-shadow 0.12s ease;
+}
+
+.arena-touch-btn .ico {
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* Optional on-screen turn arrows (alternative to the drag joystick). Shown only
+   when the player chose "Arrows" and on touch devices, on the steering side. */
+.arena-arrows {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  /* Arrows sit on the steering side: default RIGHT, left-handed LEFT. */
+  #arenaRoot.arrows-mode .arena-arrows {
+    display: flex;
+    gap: 16px;
+    position: absolute;
+    right: max(20px, env(safe-area-inset-right));
+    bottom: calc(max(22px, env(safe-area-inset-bottom)) + 64px);
+    z-index: 70;
+  }
+  #arenaRoot.arrows-mode.arena-left .arena-arrows {
+    right: auto;
+    left: max(20px, env(safe-area-inset-left));
+  }
+}
+
+.arena-arrow-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 22px;
+  border: 2px solid rgba(86, 199, 255, 0.6);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.82), rgba(4, 8, 13, 0.86));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #cdeeff;
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 16px rgba(86, 199, 255, 0.22);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  transition: transform 0.06s ease, filter 0.06s ease, box-shadow 0.12s ease;
+}
+
+.arena-arrow-btn.active {
+  transform: scale(0.9);
+  filter: brightness(1.4);
+  box-shadow: 0 0 26px rgba(86, 199, 255, 0.75);
+}
+
+.arena-boost-btn {
+  border-color: rgba(86, 199, 255, 0.7);
+  color: #cdeeff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 16px rgba(86, 199, 255, 0.28);
+}
+
+.arena-fire-btn {
+  border-color: rgba(255, 159, 67, 0.78);
+  color: #ffe1c2;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 16px rgba(255, 159, 67, 0.3);
+}
+
+.arena-touch-btn.active {
+  transform: scale(0.9);
+  filter: brightness(1.4);
+}
+
+.arena-boost-btn.active { box-shadow: 0 0 26px rgba(86, 199, 255, 0.75); }
+.arena-fire-btn.active { box-shadow: 0 0 26px rgba(255, 159, 67, 0.8); }
+
+/* Centred toast for objective completion. */
+.arena-toast {
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 48px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-12px);
+  z-index: 65;
+  background: rgba(3, 6, 9, 0.82);
+  border: 1px solid rgba(255, 210, 63, 0.6);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-family: var(--font-arcade, "Courier New", monospace);
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffd23f;
+  letter-spacing: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.arena-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.arena-feed {
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 88px);
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 58;
+  display: grid;
+  gap: 6px;
+  width: min(270px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.arena-feed-item {
+  padding: 7px 10px;
+  border: 1px solid rgba(86, 199, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 6, 9, 0.62);
+  color: var(--event-color, #edf7ff);
+  border-color: var(--event-color, rgba(86, 199, 255, 0.22));
+  font-size: 12px;
+  line-height: 1.25;
+  animation: feedIn 180ms ease;
+}
+
+.arena-death-reason {
+  max-width: min(620px, calc(100vw - 36px));
+  text-align: center;
+}
+
+@keyframes feedIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Death overlay */
+.arena-death {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgba(3, 6, 9, 0.78);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.arena-death[hidden] {
+  display: none;
+}
+
+.arena-death h2 {
+  font-size: 52px;
+  margin: 0;
+  color: #ff5d73;
+  text-shadow: 0 0 24px rgba(255, 93, 115, 0.6);
+  letter-spacing: 4px;
+}
+
+.arena-death .arena-death-line {
+  font-size: 20px;
+  color: #94a8b8;
+}
+
+.arena-death .arena-death-line strong {
+  color: #46f2a4;
+  font-size: 28px;
+}
+
+.arena-death-actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  pointer-events: auto;
+}
+
+.arena-death-actions button {
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 13px 30px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.arena-death-actions button:hover {
+  transform: translateY(-1px);
+}
+
+#arenaRespawn {
+  background: linear-gradient(135deg, #46f2a4, #56c7ff);
+  color: #03210f;
+  box-shadow: 0 8px 24px rgba(70, 242, 164, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+#arenaRespawn:hover {
+  box-shadow: 0 10px 30px rgba(86, 199, 255, 0.55);
+}
+
+#arenaExitDead {
+  background: linear-gradient(180deg, rgba(20, 30, 44, 0.82), rgba(6, 12, 20, 0.86));
+  border-color: rgba(148, 168, 184, 0.45);
+  color: #c3d2e0;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+#arenaExitDead:hover {
+  color: #edf7ff;
+  border-color: rgba(86, 199, 255, 0.55);
+  box-shadow: 0 0 22px rgba(86, 199, 255, 0.28);
+}
+
+@media (max-width: 640px) {
+  .arena-death h2 { font-size: 38px; }
+  .arena-leaderboard { min-width: 0; }
+  .arena-score-box { min-width: 0; }
+  .arena-hud {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    gap: 6px;
+    max-width: min(38vw, 165px);
+  }
+  .arena-score-box,
+  .arena-leaderboard {
+    max-width: min(38vw, 160px);
+    min-width: 0;
+    padding: 6px 9px;
+  }
+  .arena-score-box .arena-value { font-size: 22px; }
+  .arena-leaderboard .arena-label { margin-bottom: 3px; }
+  .arena-rank { font-size: 11px; gap: 5px; padding: 2px 0; }
+  /* Trim the live leaderboard to the top 3. */
+  #arenaRanks .arena-rank:nth-child(n + 4) { display: none; }
+  /* Minimal phone HUD: keep only your length + a tiny top-3. Hide the goal text,
+     kill feed, biome label, and all-time board so the play area stays clear. */
+  .arena-alltime,
+  .arena-solo-objective,
+  .arena-feed,
+  .arena-biome { display: none; }
+  .arena-settings-toggle {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+}
+
+/* Approved game-over dialog */
+#arenaRoot .arena-death {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: max(18px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+           max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 93, 115, 0.1), transparent 42%),
+    rgba(3, 6, 9, 0.82);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+#arenaRoot .arena-death[hidden] {
+  display: none;
+}
+
+.arena-death-card {
+  width: min(620px, 100%);
+  display: grid;
+  gap: 20px;
+  justify-items: center;
+  padding: clamp(20px, 5vw, 36px);
+  border: 1px solid rgba(255, 93, 115, 0.35);
+  border-radius: 14px;
+  background: rgba(16, 23, 33, 0.96);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 93, 115, 0.08),
+              inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.arena-mode-tag {
+  margin: 0;
+  color: #91a4b5;
+  font-size: 0.74rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.arena-mode-tag strong {
+  color: #edf7ff;
+}
+
+#arenaRoot .arena-death h2 {
+  margin: 0;
+  color: #ff5d73;
+  font-size: clamp(2.2rem, 9vw, 3.4rem);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-shadow: 0 0 24px rgba(255, 93, 115, 0.55);
+}
+
+.arena-death-cause {
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 93, 115, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 93, 115, 0.08);
+  color: #ff9fb0;
+  font-size: 0.85rem;
+}
+
+.arena-score-block {
+  display: grid;
+  gap: 2px;
+}
+
+.arena-score-label {
+  color: #91a4b5;
+  font-size: 0.74rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.arena-final-score {
+  color: #46f2a4;
+  font-size: clamp(2.6rem, 11vw, 4.2rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 0 18px rgba(70, 242, 164, 0.5);
+}
+
+#arenaRoot .arena-death-best {
+  min-height: 1.4em;
+  margin: 0;
+  color: #91a4b5;
+  font-size: 0.92rem;
+}
+
+#arenaRoot .arena-death-best strong {
+  color: #ffcf5a;
+  font-variant-numeric: tabular-nums;
+}
+
+#arenaRoot .arena-death-best.record {
+  padding: 3px 11px;
+  border: 1px solid rgba(255, 207, 90, 0.6);
+  border-radius: 999px;
+  background: rgba(255, 207, 90, 0.14);
+  color: #ffe08a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  animation: arenaBestPulse 1.6s ease infinite;
+}
+
+@keyframes arenaBestPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 207, 90, 0.25); }
+  50% { box-shadow: 0 0 20px rgba(255, 207, 90, 0.6); }
+}
+
+.arena-death-stats {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arena-death-stats li {
+  display: grid;
+  gap: 3px;
+  padding: 12px 8px;
+  border: 1px solid #2a4053;
+  border-radius: 10px;
+  background: rgba(8, 16, 24, 0.9);
+}
+
+.arena-death-stats span {
+  color: #91a4b5;
+  font-size: 0.66rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.arena-death-stats strong {
+  color: #edf7ff;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-score-notice {
+  min-height: 1.35em;
+  margin: -8px 0 0;
+  color: #91a4b5;
+  font-size: 0.78rem;
+}
+
+#arenaRoot .arena-death-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 6px;
+  pointer-events: auto;
+}
+
+#arenaRoot .arena-death-actions button {
+  min-height: 56px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+#arenaRoot #arenaRespawn {
+  border: 0;
+  background: linear-gradient(135deg, #46f2a4, #56c7ff);
+  color: #03210f;
+  box-shadow: 0 8px 24px rgba(70, 242, 164, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-size: 1.05rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+#arenaRoot #arenaExitDead {
+  border: 1px solid rgba(148, 168, 184, 0.45);
+  background: linear-gradient(180deg, rgba(20, 30, 44, 0.82), rgba(6, 12, 20, 0.86));
+  color: #c3d2e0;
+}
+
+@media (max-width: 420px) {
+  #arenaRoot .arena-death {
+    align-items: start;
+  }
+
+  .arena-death-card {
+    gap: 16px;
+    padding: 20px 16px;
+  }
+
+  .arena-death-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .arena-death-stats li:last-child {
+    grid-column: 1 / -1;
+  }
+
+  #arenaRoot .arena-death-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.arena-death-best {
+  color: #ffcf5a;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(255, 207, 90, 0.45);
+}
+
+.arena-death-best.record {
+  color: #ffe08a;
+  animation: bestPulse 1.4s ease infinite;
+}
+
+@keyframes bestPulse {
+  0%, 100% { text-shadow: 0 0 12px rgba(255, 207, 90, 0.45); }
+  50% { text-shadow: 0 0 22px rgba(255, 207, 90, 0.9); }
+}

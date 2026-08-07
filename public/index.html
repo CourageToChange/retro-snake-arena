@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#05070a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Retro Snake Arena">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Retro Snake Arena</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preload" href="/fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23030609'/%3E%3Cpath fill='%2346f2a4' d='M6 10h16v4h4v12H10v-4H6z'/%3E%3Crect x='20' y='18' width='3' height='3' fill='%23030609'/%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/arena/arena.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#modes">Skip to mode select</a>
+    <div class="page">
+      <header class="topbar">
+        <div class="site-brand">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false">
+            <rect x="1" y="1" width="24" height="24" rx="5" fill="none" stroke="#46f2a4" stroke-width="2"/>
+            <circle cx="8.5" cy="9" r="2.4" fill="#46f2a4"/>
+            <circle cx="13" cy="13" r="2.4" fill="#56c7ff"/>
+            <circle cx="17.5" cy="17" r="2.4" fill="#ffcf5a"/>
+          </svg>
+          <span>Retro Snake Arena</span>
+        </div>
+
+        <div class="auth-corner" id="authCorner">
+          <div id="authSignedOut">
+            <div id="googleSignin" class="google-signin" hidden></div>
+            <button id="googleFallbackBtn" class="signin google-btn" type="button" aria-label="Sign in">
+              <svg width="17" height="17" viewBox="0 0 17 17" aria-hidden="true" focusable="false">
+                <circle cx="8.5" cy="5.5" r="3.2" fill="none" stroke="#56c7ff" stroke-width="1.6"/>
+                <path d="M2.5 15.5c0-3.4 2.7-5.4 6-5.4s6 2 6 5.4" fill="none" stroke="#56c7ff" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              <span class="signin-text">Sign in</span>
+            </button>
+          </div>
+          <div class="auth-signed-in" id="authSignedIn" hidden>
+            <span id="authUserName"></span>
+            <button id="authLogoutBtn" type="button">Sign out</button>
+          </div>
+          <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
+        </div>
+      </header>
+
+      <main class="shell">
+        <section class="mode-select landing" id="setup" aria-labelledby="modesHeading">
+          <h1 class="sr-only">Retro Snake Arena</h1>
+          <p class="section-label" id="modesHeading">Choose a mode</p>
+
+          <div class="modes" id="modes">
+            <button id="singlePlayerBtn" class="mode-card mode-arena selected" type="button" aria-describedby="arenaModeScore">
+              <span class="card">
+                <span class="tile" aria-hidden="true">
+                  <svg width="40" height="40" viewBox="0 0 40 40">
+                    <path d="M6 30c8 2 6-8 13-7s5 9 15 3" fill="none" stroke="#46f2a4" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="33" cy="12" r="2.2" fill="#ff5d73"/>
+                    <circle cx="10" cy="10" r="2.2" fill="#56c7ff"/>
+                    <circle cx="24" cy="34" r="2.2" fill="#ffcf5a"/>
+                    <circle cx="7" cy="21" r="1.5" fill="#91a4b5"/>
+                  </svg>
+                </span>
+                <span class="mode-copy">
+                  <span class="mode-name">Arena</span>
+                  <span class="chips" aria-hidden="true"><span>Free movement</span><span>20 bots</span><span>Power-ups</span></span>
+                  <span class="mode-score" id="arenaModeScore" data-mode-score="arena" aria-live="polite">No scores yet</span>
+                </span>
+                <span class="go" aria-hidden="true">&#9656;</span>
+              </span>
+            </button>
+
+            <button id="soloBtn" class="mode-card mode-classic" type="button" aria-describedby="classicModeScore">
+              <span class="card">
+                <span class="tile" aria-hidden="true">
+                  <svg width="40" height="40" viewBox="0 0 40 40">
+                    <rect x="6" y="6" width="7" height="7" fill="#ffcf5a"/>
+                    <rect x="14" y="6" width="7" height="7" fill="#ffcf5a"/>
+                    <rect x="14" y="14" width="7" height="7" fill="#ffcf5a"/>
+                    <rect x="22" y="14" width="7" height="7" fill="#ffcf5a"/>
+                    <rect x="22" y="22" width="7" height="7" fill="#ffcf5a"/>
+                    <rect x="28" y="30" width="5" height="5" fill="#ff5d73"/>
+                  </svg>
+                </span>
+                <span class="mode-copy">
+                  <span class="mode-name">Classic</span>
+                  <span class="chips" aria-hidden="true"><span>Grid</span><span>Eat &amp; grow</span><span>One life</span></span>
+                  <span class="mode-score" id="classicModeScore" data-mode-score="classic" aria-live="polite">No scores yet</span>
+                </span>
+                <span class="go" aria-hidden="true">&#9656;</span>
+              </span>
+            </button>
+
+            <button id="mazeBtn" class="mode-card mode-rune" type="button" aria-describedby="runeModeScore">
+              <span class="card">
+                <span class="tile" aria-hidden="true">
+                  <svg width="40" height="40" viewBox="0 0 40 40">
+                    <path d="M8 8h24v10H16v6h16v8H8" fill="none" stroke="#a88cff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="8" cy="8" r="2.4" fill="#e85cff"/>
+                  </svg>
+                </span>
+                <span class="mode-copy">
+                  <span class="mode-name">Rune Maze</span>
+                  <span class="chips" aria-hidden="true"><span>Maze</span><span>Runes</span><span id="mazeReward">Adventure</span></span>
+                  <span class="mode-score" id="runeModeScore" data-mode-score="rune" aria-live="polite">No scores yet</span>
+                </span>
+                <span class="go" aria-hidden="true">&#9656;</span>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel sp-setup setup-panel" id="spSetup" aria-labelledby="setupHeading">
+          <h2 class="sp-title" id="setupHeading">Setup</h2>
+          <div class="sp-preview" aria-hidden="true">
+            <canvas id="headPreview" width="240" height="160"></canvas>
+          </div>
+          <label class="field">
+            <span>Name</span>
+            <input id="playerName" maxlength="14" autocomplete="nickname" placeholder="Player">
+          </label>
+          <label class="field">
+            <span>Leaderboard initials</span>
+            <input id="playerInitials" maxlength="3" autocomplete="off" placeholder="ABC" aria-describedby="initialsHint">
+            <small class="field-note" id="initialsHint">3 letters or digits — the only name on the public board</small>
+          </label>
+          <fieldset class="field choice-field">
+            <legend>Colour</legend>
+            <div class="skin-grid" id="skinGrid" aria-label="Choose snake colour"></div>
+          </fieldset>
+          <fieldset class="field choice-field">
+            <legend>Head</legend>
+            <div class="arena-head-picker" id="arenaHeadPicker" aria-label="Choose a head style"></div>
+          </fieldset>
+          <details class="setup-settings">
+            <summary>Game settings</summary>
+            <label class="field arena-setting">
+              <span>Turning speed</span>
+              <input type="range" id="arenaSens" min="0.3" max="1.3" step="0.05" value="0.6">
+            </label>
+            <label class="field arena-setting touch-only">
+              <span>Touch controls</span>
+              <select id="setupTouchControl" aria-label="Touch controls">
+                <option value="joystick">Drag to steer</option>
+                <option value="arrows">Arrow buttons</option>
+              </select>
+            </label>
+            <label class="field arena-setting">
+              <span>Visual quality</span>
+              <select id="setupQuality" aria-label="Visual quality">
+                <option value="low">Low</option>
+                <option value="balanced">Balanced</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label class="field arena-setting">
+              <span>Animation smoothness</span>
+              <select id="setupMaxFps" aria-label="Animation smoothness">
+                <option value="0">Automatic</option>
+                <option value="60">60 frames per second</option>
+                <option value="120">120 frames per second</option>
+              </select>
+            </label>
+            <label class="toggle"><input type="checkbox" id="setupShowFps"><span>Show frame rate</span></label>
+            <label class="toggle"><input type="checkbox" id="setupSound"><span>Sound</span></label>
+            <label class="toggle"><input type="checkbox" id="tickSoundToggle"><span>Move sound</span></label>
+            <label class="toggle"><input type="checkbox" id="setupReducedMotion"><span>Reduce motion</span></label>
+            <label class="toggle touch-only"><input type="checkbox" id="setupLeftHanded"><span>Left-handed controls</span></label>
+          </details>
+          <button id="spPlayBtn" class="mode-cta primary" type="button">Play</button>
+          <p class="hint"><kbd>WASD</kbd> / <kbd>&larr;&uarr;&darr;&rarr;</kbd> steer &middot; <kbd>Shift</kbd> boost &middot; touch: drag</p>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </section>
+
+      <!-- Classic and Rune Maze game UI, shown when either grid mode launches.
+           One shared in-game shell: a rail with the pause control, a board stage
+           sized from the viewport, and a single overlay slot (pause / result). -->
+      <section class="game-wrap" hidden>
+        <header class="game-rail">
+          <div class="rail-stats">
+            <div class="rail-stat">
+              <span>Mode</span>
+              <strong id="roomCode">IDLE</strong>
+            </div>
+            <div class="rail-stat">
+              <span>Level</span>
+              <strong id="levelText">1</strong>
+            </div>
+            <div class="rail-stat">
+              <span>Best</span>
+              <strong id="bestScore">0</strong>
+            </div>
+            <div class="rail-stat">
+              <span>Status</span>
+              <strong id="gameStatus">Ready</strong>
+            </div>
+          </div>
+          <button id="classicPauseBtn" class="rail-btn pause-btn" type="button" aria-label="Pause game" aria-pressed="false" title="Pause (Esc or P)">&#10074;&#10074;</button>
+          <button id="muteBtn" class="rail-btn icon-button" type="button" aria-label="Toggle sound" title="Toggle sound">Sound</button>
+        </header>
+
+        <div class="board-stage" id="boardStage">
+          <canvas id="board" width="768" height="768" aria-label="Snake game board"></canvas>
+          <div class="overlay-slot" id="classicOverlay" hidden></div>
+        </div>
+
+        <footer class="controls">
+          <div class="scoreboard" id="scoreboard"></div>
+          <div class="pad" aria-label="Movement controls">
+            <button data-dir="up" type="button">&#9650;</button>
+            <button data-dir="left" type="button">&#9664;</button>
+            <button data-dir="down" type="button">&#9660;</button>
+            <button data-dir="right" type="button">&#9654;</button>
+          </div>
+          <div class="classic-actions">
+            <p class="score-notice" id="classicScoreNotice" role="status" aria-live="polite"></p>
+            <button id="restartBtn" type="button">Restart</button>
+          </div>
+        </footer>
+      </section>
+      </main>
+    </div>
+
+    <div id="arenaRoot" hidden>
+      <canvas id="arenaCanvas" tabindex="0" aria-label="Arena game world"></canvas>
+      <div class="arena-hud">
+        <div class="arena-score-box">
+          <div class="arena-label">Score</div>
+          <div class="arena-value" id="arenaScore">0</div>
+          <div class="arena-effects" id="arenaEffects"></div>
+          <div class="arena-ammo">Rockets <span id="arenaAmmo">0</span></div>
+          <div class="arena-combo" id="arenaCombo"></div>
+        </div>
+        <div class="arena-leaderboard">
+          <div class="arena-label">Current leaders</div>
+          <ol id="arenaRanks"></ol>
+        </div>
+        <div class="arena-leaderboard arena-alltime">
+          <div class="arena-label">Best scores</div>
+          <ol id="arenaBest"></ol>
+        </div>
+        <div class="arena-solo-objective" id="arenaObjective"></div>
+      </div>
+      <div class="arena-toast" id="arenaToast"></div>
+      <div class="arena-feed" id="arenaFeed"></div>
+      <div class="arena-biome" id="arenaBiome"></div>
+      <div class="arena-fps" id="arenaFps" hidden>Frame rate: 0</div>
+      <button class="arena-settings-toggle" id="arenaSettingsToggle" aria-label="Open game settings" title="Open game settings">⚙</button>
+      <div class="arena-settings-panel" id="arenaSettingsPanel" hidden>
+        <label class="touch-only">Touch controls
+          <select id="arenaTouchControlSel" aria-label="Touch controls">
+            <option value="joystick">Drag to steer</option>
+            <option value="arrows">Arrow buttons</option>
+          </select>
+        </label>
+        <label class="touch-only"><input type="checkbox" id="arenaLeftHandedToggle"> Left-handed controls</label>
+        <label><input type="checkbox" id="arenaSoundOn"> Sound</label>
+        <label><input type="checkbox" id="arenaShowFps"> Show frame rate</label>
+        <label>Visual quality
+          <select id="arenaQuality" aria-label="Visual quality">
+            <option value="low">Low</option>
+            <option value="balanced">Balanced</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label>Animation smoothness
+          <select id="arenaMaxFpsSel" aria-label="Animation smoothness">
+            <option value="0">Automatic (recommended)</option>
+            <option value="60">60 frames per second</option>
+            <option value="120">120 frames per second</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="arenaReducedMotion"> Reduce motion and effects</label>
+      </div>
+      <button class="arena-pause-btn" id="arenaPauseBtn" type="button" aria-label="Pause game" aria-pressed="false" title="Pause (Esc or P)">&#10074;&#10074;</button>
+      <div class="arena-touch-controls" id="arenaTouchControls">
+        <button class="arena-touch-btn arena-boost-btn" id="arenaBoostBtn" type="button"><span class="ico" aria-hidden="true">⚡</span>BOOST</button>
+        <button class="arena-touch-btn arena-fire-btn" id="arenaFireBtn" type="button"><span class="ico" aria-hidden="true">🚀</span>FIRE</button>
+      </div>
+      <div class="arena-arrows" id="arenaArrows">
+        <button class="arena-arrow-btn" id="arenaLeftBtn" type="button" aria-label="Turn left">&#9664;</button>
+        <button class="arena-arrow-btn" id="arenaRightBtn" type="button" aria-label="Turn right">&#9654;</button>
+      </div>
+      <!-- One overlay slot: tutorial, pause and result are mutually exclusive. -->
+      <div class="arena-overlay-slot" id="arenaOverlaySlot">
+        <div class="arena-hint" id="arenaHint" hidden>
+          <div class="arena-hint-title">How to play</div>
+          <div>Mouse: steer with cursor, click to fire rockets.</div>
+          <div>Keyboard: A/D or arrows steer, W/Up/Shift boosts.</div>
+          <div>Touch: drag on one side to steer; hold BOOST and tap FIRE on the other. (Left-handed? Flip it in setup.)</div>
+          <button id="arenaHintDismiss" type="button">Got it</button>
+        </div>
+        <div class="arena-pause" id="arenaPause" role="dialog" aria-modal="true" aria-labelledby="arenaPauseTitle" hidden>
+          <section class="overlay-card arena-pause-card">
+            <p class="arena-mode-tag">Arena &middot; <strong id="arenaPausePlayer">Player</strong></p>
+            <h2 id="arenaPauseTitle">Paused</h2>
+            <div class="overlay-actions">
+              <button id="arenaResumeBtn" type="button">Resume</button>
+              <button id="arenaRestartRunBtn" type="button">Restart run</button>
+              <button id="arenaQuitBtn" class="danger-btn" type="button">Quit to menu</button>
+            </div>
+          </section>
+        </div>
+        <div class="arena-death" id="arenaDeath" role="dialog" aria-modal="true" aria-labelledby="arenaDeathTitle" aria-describedby="arenaDeathReason" hidden>
+        <section class="arena-death-card">
+          <p class="arena-mode-tag">Arena &middot; <strong id="arenaDeathPlayer">Player</strong></p>
+          <h2 id="arenaDeathTitle">You died</h2>
+          <p class="arena-death-cause" id="arenaDeathReason">Cause: collision</p>
+          <div class="arena-score-block">
+            <span class="arena-score-label">Score</span>
+            <strong class="arena-final-score" id="arenaDeathScore">0</strong>
+          </div>
+          <p class="arena-death-best" id="arenaDeathBest" aria-live="polite"></p>
+          <ul class="arena-death-stats">
+            <li><span>Length</span><strong id="arenaDeathLength">0</strong></li>
+            <li><span>Time survived</span><strong id="arenaDeathTime">0:00</strong></li>
+            <li><span>Best combo</span><strong id="arenaDeathCombo">0</strong></li>
+          </ul>
+          <p class="arena-score-notice" id="arenaScoreNotice" role="status" aria-live="polite"></p>
+          <div class="arena-death-actions">
+            <button id="arenaRespawn" type="button">Play again</button>
+            <button id="arenaExitDead" type="button">Change mode</button>
+          </div>
+        </section>
+      </div>
+      </div>
+    </div>
+
+    <script src="/classicAdventure.js"></script>
+    <script src="/client.js"></script>
+    <script src="/profile.js"></script>
+    <script src="/auth.js"></script>
+    <script src="/arena/arenaRules.js"></script>
+    <script src="/arena/arena.js"></script>
+    <script src="/launcher.js"></script>
+  </body>
+</html>
