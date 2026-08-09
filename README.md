@@ -16,6 +16,8 @@ SQLite.
 
 **Live at [snake.noorfamily.uk](https://snake.noorfamily.uk).**
 
+Read the full case study at [noor.noorfamily.uk](https://noor.noorfamily.uk).
+
 See the [player guide](USER-GUIDE.md) for phone and desktop controls.
 
 ## Modes
