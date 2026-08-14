@@ -49,9 +49,7 @@ browser submits only a score that beats the stored best for its mode. Only
 signed-in scores reach the shared board. The wording on screen is "Top score"
 and "Personal best", never "world record".
 
-Accounts store a Google account identifier, a chosen display name, and supported
-game settings — graphics quality, sound, control preferences and snake
-appearance — so they follow you between devices. No email address and no
+Accounts store a Google account identifier, a chosen display name, and supported game settings: graphics quality, sound, control preferences and snake appearance, so they follow you between devices. No email address and no
 password are stored.
 
 ## Phone layout and pause
