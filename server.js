@@ -12,6 +12,7 @@ const {
 const { clientIp } = require("./server/clientIp");
 const { openDatabase } = require("./server/database");
 const { TtlRateLimiter, rateLimitMiddleware } = require("./server/rateLimiter");
+const { renderShell, HASH_PATTERN, PUBLIC_DIR } = require("./server/shellAssets");
 const {
   MODE_SET,
   MODES,
@@ -34,6 +35,10 @@ const PROFILE_WRITE_MAX_IN_WINDOW = 20;
 const LEADERBOARD_KEEP_ROWS = 200;
 const MAX_LEADERBOARD_LIMIT = 50;
 const MAINTENANCE_INTERVAL_MS = 60 * 1000;
+
+// Computed once at boot. A throw here fails the health gate in scripts/build-and-ship.sh,
+// before the running container is swapped.
+const shell = renderShell();
 
 const app = express();
 app.set("trust proxy", 1);
@@ -130,7 +135,23 @@ app.post("/arena/score", (req, res) => {
   }
   let payload;
   try {
-    payload = runTokens.verify(runToken, { mode, userId: runIdentity(user) });
+    try {
+      payload = runTokens.verify(runToken, { mode, userId: runIdentity(user) });
+    } catch (verifyError) {
+      // A run started signed-out can be claimed by signing in straight afterwards
+      // ("sign in to keep that score"). Only in that direction: a token minted for
+      // one account can never be redeemed by another, which is what the re-verify
+      // against "anonymous" pins down.
+      //
+      // This grants no new capability. The token is HMAC-signed, single-use via
+      // spent_run_tokens, expires in 30 minutes, and the score still has to pass
+      // the same plausibility check against its issue time -- every constraint a
+      // signed-in player already faced.
+      const claimingOwnAnonymousRun =
+        verifyError instanceof RunTokenError && verifyError.code === "user" && Boolean(user);
+      if (!claimingOwnAnonymousRun) throw verifyError;
+      payload = runTokens.verify(runToken, { mode, userId: "anonymous" });
+    }
     validateScorePlausibility(mode, score, durationMs, payload.issuedAt);
     const result = acceptScoreOnce({
       tokenHash: tokenFingerprint(runToken),
@@ -213,6 +234,43 @@ app.put(
     res.json({ ok: true });
   }
 );
+
+// Content-addressed assets. Any hash-shaped prefix is served, not only the current one, so a
+// client holding a stale reference gets working bytes instead of a 404 -- but only the CURRENT
+// hash is promised immutable, because that is the only one whose URL still matches its content.
+const hashedAssets = express.static(PUBLIC_DIR, {
+  index: false,
+  fallthrough: false,
+  setHeaders(res) {
+    res.setHeader(
+      "Cache-Control",
+      res.locals.assetHashIsCurrent
+        ? "public, max-age=31536000, immutable"
+        : "public, max-age=0"
+    );
+  }
+});
+
+app.use("/a", (req, res, next) => {
+  const match = HASH_PATTERN.exec(req.url);
+  if (!match) return next();
+  res.locals.assetHashIsCurrent = match[1] === shell.hash;
+  req.url = match[2];
+  next();
+}, hashedAssets);
+
+// `/` and `/sw.js` are the two documents that must never be stale, and `/` already is not:
+// the edge classifies it DYNAMIC and never caches it. Both are served with the current hash
+// injected, so a returning player picks up new assets on their next navigation.
+app.get(["/", "/index.html"], (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=0");
+  res.type("html").send(shell.indexHtml);
+});
+
+app.get("/sw.js", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=0");
+  res.type("application/javascript").send(shell.serviceWorker);
+});
 
 app.use("/.well-known", express.static(path.join(__dirname, "public", ".well-known")));
 app.use(express.static(path.join(__dirname, "public")));
@@ -333,8 +391,11 @@ function recordScoreWithBests(user, mode, name, score) {
           name = excluded.name,
           updated_at = excluded.updated_at
       `).run(user.id, mode, RULESET_VERSION, name, score, new Date().toISOString());
+      // Only a new personal best enters the shared board (the documented rule). The
+      // client already submits only new bests, but the server must not rely on that:
+      // otherwise one account could fill the retained rows with repeat runs.
+      recordScore(mode, name, score);
     }
-    recordScore(mode, name, score);
   }
 
   return {

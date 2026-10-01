@@ -7,6 +7,7 @@ node_modules
 android
 .chrome-e2e-profile
 .playwright-browsers
+CODEX_PROMPT_*.md
 npm-debug.log
 
 # Documentation and runbooks must NOT ship inside the internet-facing image.
@@ -20,3 +21,6 @@ npm-debug.log
 # PM staging artifacts that must never reach a built image.
 DESIGN-*.html
 _worker-notes
+
+# Profiling harnesses: developer tooling, must never ship in the runtime image.
+scripts/perf

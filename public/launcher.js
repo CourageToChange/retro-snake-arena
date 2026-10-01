@@ -70,7 +70,94 @@
     }
   }
 
-  window.SnakeRunScores = Object.freeze({ begin, cancel, submit });
+  // ---- Holding a signed-out run so it is not simply thrown away -------------
+  // A signed-out run used to be submitted anyway: the server validated it, spent
+  // the single-use token, recorded nothing, and the player was shown the record
+  // they had just beaten as though nothing had happened. Submitting also burned
+  // the token, so it could never be redeemed later.
+  //
+  // Now a signed-out run is held here instead, and submitted for real once the
+  // player signs in. The token stays unspent, and it is good for 30 minutes.
+  const HELD_KEY = "snakeHeldRun";
+
+  async function holdRun(run, details) {
+    if (!run || run.ended || !modes.has(run.mode)) return null;
+    const score = Math.round(Number(details?.score) || 0);
+    if (score < 1) return null;
+
+    // tokenReady is the in-flight /arena/run/start request, so this has to be
+    // awaited; reading it synchronously only ever yielded a Promise.
+    const token = await run.tokenReady;
+    if (!token || !token.ok) return null;
+
+    run.ended = true;
+    const held = {
+      mode: run.mode,
+      score,
+      name: String(details?.name || "XXX"),
+      runToken: token.runToken,
+      durationMs: Math.max(1, Math.round(performance.now() - run.startedAt)),
+      heldAt: Date.now()
+    };
+    try {
+      localStorage.setItem(HELD_KEY, JSON.stringify(held));
+    } catch {
+      return null; // private browsing: nothing to hold it in
+    }
+    return held;
+  }
+
+  function peekHeldRun() {
+    try {
+      const raw = localStorage.getItem(HELD_KEY);
+      if (!raw) return null;
+      const held = JSON.parse(raw);
+      // The run token lives 30 minutes server-side; drop anything past that
+      // rather than submitting something that can only be refused.
+      if (!held || !held.runToken || Date.now() - held.heldAt > 29 * 60 * 1000) {
+        localStorage.removeItem(HELD_KEY);
+        return null;
+      }
+      return held;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearHeldRun() {
+    try { localStorage.removeItem(HELD_KEY); } catch { /* private mode */ }
+  }
+
+  async function redeemHeldRun() {
+    const held = peekHeldRun();
+    if (!held) return { ok: false, reason: "none" };
+    clearHeldRun();
+    try {
+      const response = await fetch("/arena/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          mode: held.mode,
+          name: held.name,
+          score: held.score,
+          runToken: held.runToken,
+          durationMs: held.durationMs
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok !== true) {
+        return { ok: false, status: response.status, reason: "rejected", data, held };
+      }
+      return { ok: true, data, held };
+    } catch {
+      return { ok: false, reason: "network", held };
+    }
+  }
+
+  window.SnakeRunScores = Object.freeze({
+    begin, cancel, submit, holdRun, peekHeldRun, clearHeldRun, redeemHeldRun
+  });
 })();
 
 // Launch Arena mode from the start screen. Maps the chosen Classic skin
@@ -252,12 +339,10 @@
     }
   }
   bindSetupSetting("setupQuality", "arenaQuality", "select", "balanced");
-  bindSetupSetting("setupShowFps", "arenaShowFps", "bool", false);
   bindSetupSetting("setupSound", "arenaSoundOn", "bool", true);
   bindSetupSetting("setupReducedMotion", "arenaReducedMotion", "bool", false);
   bindSetupSetting("setupLeftHanded", "arenaLeftHanded", "bool", false);
   bindSetupSetting("setupTouchControl", "arenaTouchControl", "select", "joystick");
-  bindSetupSetting("setupMaxFps", "arenaMaxFps", "select", "0");
 
   // Display name: persist what the player types. It is used for saved scores
   // and is stored in the signed-in player's profile.
@@ -350,12 +435,10 @@
   }
   function refreshSetupControls() {
     setVal("setupQuality", "arenaQuality", "select");
-    setVal("setupShowFps", "arenaShowFps", "bool", false);
     setVal("setupSound", "arenaSoundOn", "bool", true);
     setVal("setupReducedMotion", "arenaReducedMotion", "bool", false);
     setVal("setupLeftHanded", "arenaLeftHanded", "bool", false);
     setVal("setupTouchControl", "arenaTouchControl", "select");
-    setVal("setupMaxFps", "arenaMaxFps", "select");
     if (sens) {
       const sv = parseFloat(localStorage.getItem("arenaSensitivity"));
       if (!isNaN(sv)) sens.value = sv;

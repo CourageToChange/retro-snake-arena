@@ -206,6 +206,12 @@ async function verifyClassic(baseUrl) {
   try {
     await page.goto(baseUrl + "/", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.ClassicGame && document.querySelector("#soloBtn"));
+    // Incomplete initials: this run can never be submitted (Rune Maze covers the submit path).
+    await page.evaluate(() => {
+      const input = document.querySelector("#playerInitials");
+      input.value = "A";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     await page.evaluate(() => document.querySelector("#soloBtn").click());
     await page.waitForFunction(() => {
       const state = window.ClassicGame && window.ClassicGame.snapshot();
@@ -231,6 +237,11 @@ async function verifyClassic(baseUrl) {
     assert(scoreboardText.includes(String(dead.players[0].score)), "Classic game-over UI is missing the score");
     assert(scoreboardText.includes("KO"), "Classic game-over UI is missing the KO state");
     assert.equal(await page.locator("#restartBtn").isEnabled(), true, "Classic restart is not enabled after death");
+    // No initials are set, so the score is never submitted: the stored best must not rise,
+    // or a run that was never saved would block a later, genuinely better-than-saved one.
+    await page.waitForFunction(() => /initials/i.test(document.getElementById("classicScoreNotice")?.textContent || ""));
+    assert.equal(await page.evaluate(() => localStorage.getItem("arenaBest:classic")), null,
+      "Classic raised the stored best for a score that was never saved");
 
     await page.locator("#restartBtn").click();
     await page.waitForFunction(() => {
@@ -514,17 +525,27 @@ async function verifyMobileArena(baseUrl) {
     await page.locator("#playerName").fill("E2E Mobile");
     await page.locator("#spPlayBtn").tap();
     await page.locator("#arenaRoot").waitFor({ state: "visible" });
+    // Wait on the durable spawn record, not the live flag, matching verifyArenaSolo above.
+    // Polling `player.alive` is a race: an Arena snake can spawn, eat and die inside one
+    // animation frame, and once it dies the result overlay waits for input, so `alive` never
+    // returns to true and the wait burns its entire timeout. That is why raising this from
+    // 4s to 30s never helped. Desktop Arena never checked `alive`, which is exactly why only
+    // the mobile test failed, and only on the runs where the spawn happened to die early.
     await page.waitForFunction(() => {
       const probe = window.__snakeArenaProbe;
-      return probe && probe.player && probe.player.alive;
+      return probe && probe.player && probe.spawnCount > 0 && probe.lastSpawnAlive;
     });
 
-    // UX-04: the old in-steering-region Exit is gone; pause sits top-centre.
+    // The old steering-region controls and unsafe live settings surface are gone.
     assert.equal(
       await page.locator("#arenaExit").count(),
       0,
       "The legacy steering-region Exit button still exists"
     );
+    assert.equal(await page.locator("#arenaSettingsToggle").count(), 0, "Arena settings gear still exists");
+    assert.equal(await page.locator("#arenaSettingsPanel").count(), 0, "Arena live settings panel still exists");
+    await page.locator("#arenaMobileScore").waitFor({ state: "visible" });
+    await page.locator("#arenaRankChip").waitFor({ state: "visible" });
     const pauseBox = await assertControlOnScreen(
       page, "#arenaPauseBtn", MOBILE_PORTRAIT, "Mobile Arena"
     );
@@ -534,12 +555,40 @@ async function verifyMobileArena(baseUrl) {
       "Arena pause control is not centred outside the steering halves: x=" + pauseCenterX
     );
     await assertControlOnScreen(page, "#arenaBoostBtn", MOBILE_PORTRAIT, "Mobile Arena");
-    await assertControlOnScreen(page, "#arenaFireBtn", MOBILE_PORTRAIT, "Mobile Arena");
+    assert.equal(
+      await page.locator("#arenaFireBtn").isVisible(),
+      false,
+      "Arena FIRE is visible at the zero-ammo spawn state"
+    );
 
-    // First run shows the tutorial (in the shared overlay slot).
-    await page.locator("#arenaHint").waitFor({ state: "visible" });
+    // Touch help uses the reserved status line instead of covering the controls.
+    assert.equal(await page.locator("#arenaHint").isVisible(), false, "Touch tutorial card covers the Arena");
+    await page.locator("#arenaToast").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#arenaToast").getAttribute("role"), "status");
+    assert.equal(await page.locator("#arenaToast").getAttribute("aria-live"), "polite");
 
-    // Real touch steering: a drag on the steering half turns the snake.
+    // Synthetic touch starts on both screen halves must be accepted by the
+    // canvas. DOM controls still intercept their own touch starts.
+    const touchStartsPrevented = await page.evaluate(() => {
+      const canvas = document.getElementById("arenaCanvas");
+      return [90, 270].map((clientX, index) => {
+        const identifier = 40 + index;
+        const start = new Event("touchstart", { bubbles: true, cancelable: true });
+        Object.defineProperty(start, "changedTouches", {
+          value: [{ identifier, clientX, clientY: 400 }]
+        });
+        canvas.dispatchEvent(start);
+        const end = new Event("touchend", { bubbles: true, cancelable: true });
+        Object.defineProperty(end, "changedTouches", {
+          value: [{ identifier, clientX, clientY: 400 }]
+        });
+        canvas.dispatchEvent(end);
+        return start.defaultPrevented;
+      });
+    });
+    assert.deepEqual(touchStartsPrevented, [true, true], "Arena canvas rejected a steering-side touch");
+
+    // Real touch steering: a drag beginning anywhere on the canvas turns the snake.
     //
     // This sequence needs the player ALIVE from the drag through to the pause tap,
     // but Arena has ~20 bots and a legitimate death mid-window is normal gameplay -
@@ -560,13 +609,22 @@ async function verifyMobileArena(baseUrl) {
         }
       }
       const steerBefore = await arenaSnapshot(page);
+      // Drag PERPENDICULAR to the snake's current heading rather than always
+      // straight up. The spawn heading is effectively random, so a fixed upward
+      // drag asked for no turn at all whenever the snake already happened to be
+      // pointing up - the assertion then failed with the player alive, which this
+      // loop deliberately does not retry. Requesting a ~90 degree turn makes the
+      // check strictly stronger and independent of the spawn.
+      const steerTarget = steerBefore.angle + Math.PI / 2;
+      const dragX = startX + Math.cos(steerTarget) * 80;
+      const dragY = 400 + Math.sin(steerTarget) * 80;
       await cdp.send("Input.dispatchTouchEvent", {
         type: "touchStart",
         touchPoints: [{ x: startX, y: 400, id: 1 }]
       });
       await cdp.send("Input.dispatchTouchEvent", {
         type: "touchMove",
-        touchPoints: [{ x: startX, y: 250, id: 1 }]
+        touchPoints: [{ x: dragX, y: dragY, id: 1 }]
       });
       try {
         await page.waitForFunction((before) => {
@@ -604,6 +662,10 @@ async function verifyMobileArena(baseUrl) {
     assert(aliveBeforePause, "Arena player died before the pause tap");
     await page.locator("#arenaPauseBtn").tap();
     await page.locator("#arenaPause").waitFor({ state: "visible" });
+    await page.locator("#arenaTouchControlSel").waitFor({ state: "visible" });
+    await page.locator("#arenaLeftHandedToggle").waitFor({ state: "visible" });
+    await page.locator("#arenaReducedMotion").waitFor({ state: "visible" });
+    await page.locator("#arenaSoundOn").waitFor({ state: "visible" });
     const arenaFrozenBefore = await arenaSnapshot(page);
     await page.waitForTimeout(400);
     const arenaFrozenAfter = await arenaSnapshot(page);
@@ -634,20 +696,24 @@ async function verifyMobileArena(baseUrl) {
 
     // UX-05: on death the result owns the slot — the tutorial cannot cover
     // "Play again".
+    const spawnsBeforeReplay = await page.evaluate(
+      () => (window.__snakeArenaProbe && window.__snakeArenaProbe.spawnCount) || 0
+    );
     await page.locator("#singlePlayerBtn").tap();
     await page.locator("#spPlayBtn").tap();
     await page.locator("#arenaRoot").waitFor({ state: "visible" });
-    await page.waitForFunction(() => {
+    // Same race as the first spawn wait: match on a NEW spawn having happened, not on the
+    // snake still being alive by the time the poll gets around to looking.
+    await page.waitForFunction((previousSpawns) => {
       const probe = window.__snakeArenaProbe;
-      return probe && probe.player && probe.player.alive;
-    });
-    await page.locator("#arenaHint").waitFor({ state: "visible" });
+      return probe && probe.player && probe.spawnCount > previousSpawns && probe.lastSpawnAlive;
+    }, spawnsBeforeReplay);
     await steerArenaToBoundaryDeath(page, 30000);
     await page.locator("#arenaDeath").waitFor({ state: "visible" });
     assert.equal(
       await page.locator("#arenaHint").isVisible(),
       false,
-      "The tutorial is still visible over the Arena result"
+      "The touch tutorial is visible over the Arena result"
     );
     const respawnBox = await page.locator("#arenaRespawn").boundingBox();
     const covering = await page.evaluate((point) => {

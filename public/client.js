@@ -1,3 +1,14 @@
+// A keystroke aimed at a text box is not a game control. Without this, the WASD
+// bindings below swallowed the very letters people need to type: entering
+// "Adam" in the initials box produced "m", because W, A, S and D each hit
+// preventDefault() before the character could reach the field. Reported by a
+// play-tester who could not type his own name.
+function isTypingTarget(target) {
+  if (!target || typeof target.tagName !== "string") return false;
+  const tag = target.tagName.toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable === true;
+}
+
 const canvas = document.querySelector("#board");
 const ctx = canvas.getContext("2d");
 const statusEl = document.querySelector("#status");
@@ -230,6 +241,7 @@ function init() {
   });
 
   window.addEventListener("keydown", (event) => {
+    if (isTypingTarget(event.target)) return;
     if ((event.code === "Escape" || event.code === "KeyP") &&
         (mode === "solo" || mode === "maze") && soloState) {
       event.preventDefault();
@@ -891,7 +903,33 @@ function setScoreNotice(text) {
   if (resultNotice) resultNotice.textContent = text;
 }
 
+// Classic and Rune are held to the same fixed 60fps as Arena. The board itself
+// steps on its own timer, so this only paces the drawing — but uncapped it still
+// repainted at the display's refresh (100+ on a high-refresh monitor) for no
+// visible benefit. Same drift-corrected accumulator as arena.js.
+const CLASSIC_FRAME_INTERVAL = 1000 / 60;
+let classicNextFrameDue = 0;
+
 function drawLoop(timestamp) {
+  // Arena runs its own loop and hides the Classic board, so at this point
+  // #board measures 0x0 with a null offsetParent and everything below paints
+  // into nothing. Skip the work, but keep the rAF alive so returning to Classic
+  // can never find a dead loop. Re-anchor the pacing on the way back.
+  // Measured 2026-08-14: 600 discarded draw() calls per 10s of Arena, 203.5 ms
+  // of main thread, about 0.34 ms stolen from every Arena frame.
+  if (document.body.classList.contains("arena-active")) {
+    classicNextFrameDue = 0;
+    lastFrameAt = timestamp;
+    requestAnimationFrame(drawLoop);
+    return;
+  }
+  if (classicNextFrameDue === 0) classicNextFrameDue = timestamp;
+  if (timestamp < classicNextFrameDue - 0.5) {
+    requestAnimationFrame(drawLoop);
+    return;
+  }
+  classicNextFrameDue += CLASSIC_FRAME_INTERVAL;
+  if (classicNextFrameDue < timestamp) classicNextFrameDue = timestamp + CLASSIC_FRAME_INTERVAL;
   const delta = Math.min(48, timestamp - lastFrameAt);
   lastFrameAt = timestamp;
   updateParticles(delta);
@@ -1589,11 +1627,9 @@ async function submitClassicScore(scoreMode, score, previousBest = 0) {
     window.SnakeBests ? window.SnakeBests.get(scoreMode) : 0
   );
   if (score > 0 && score <= storedBest) {
-    setScoreNotice(`Your best ${storedBest.toLocaleString("en-GB")} stands — beat it to save.`);
+    setScoreNotice(`Your best ${storedBest.toLocaleString("en-GB")} stands. Beat it to save.`);
     return;
   }
-  if (window.SnakeBests) window.SnakeBests.update(scoreMode, score);
-
   const initials = window.SnakeInitials ? window.SnakeInitials() : "";
   if (score > 0 && !initials) {
     setScoreNotice("Set 3 leaderboard initials on the menu to save scores.");
@@ -1604,6 +1640,12 @@ async function submitClassicScore(scoreMode, score, previousBest = 0) {
     name: initials || "XXX",
     score
   });
+  // Raise the stored best only once the server has accepted the run. Raising it
+  // first meant a run that was never saved (bad initials, a 429, a rejection)
+  // could stop a later, genuinely better-than-saved score from being submitted.
+  if (result.ok && !result.skipped && window.SnakeBests) {
+    window.SnakeBests.update(scoreMode, result.data && result.data.loggedIn ? result.data.best : score);
+  }
   const expectedMode = scoreMode === "rune" ? "maze" : "solo";
   if (mode !== expectedMode || !soloState || soloState.running) return;
 
@@ -1613,7 +1655,7 @@ async function submitClassicScore(scoreMode, score, previousBest = 0) {
     if (result.data.personalBest) {
       setScoreNotice("Personal best " + result.data.best.toLocaleString("en-GB"));
     } else if (result.data.loggedIn) {
-      setScoreNotice("Score saved.");
+      setScoreNotice(`Your best ${result.data.best.toLocaleString("en-GB")} stands.`);
     } else {
       setScoreNotice("Sign in to save scores.");
     }

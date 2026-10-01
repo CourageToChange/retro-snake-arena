@@ -59,9 +59,14 @@ board renders at 338×338 CSS pixels, or 10.56 pixels per cell. At 800×360
 landscape, it renders at 280×280, or 8.75 pixels per cell, with every control on
 screen.
 
+On a phone, Arena's canvas fills the screen. A small overlay shows your score,
+rank, timed power-ups and one-line messages. With the default touch controls you
+can drag anywhere on the canvas to steer, and the buttons on top of it still take
+their own taps. FIRE only appears while you have rockets, and it shows how many
+are left.
+
 All three modes pause from the on-screen pause button or **Escape/P**. Quitting
-a live run requires a confirming second tap or click. Arena places its pause and
-quit flow outside the touch steering regions.
+a live run requires a confirming second tap or click.
 
 ## Install and run
 

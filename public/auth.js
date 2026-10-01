@@ -47,6 +47,9 @@
       const data = await fetchJson("/auth/me");
       currentUser = data.user || null;
       render();
+      // Covers signing in from another tab and coming back: the session is
+      // restored here rather than through the credential callback.
+      if (currentUser) redeemHeldRunIfAny();
     } catch {
       setMessage("Account status unavailable.", true);
     }
@@ -110,9 +113,32 @@
       currentUser = data.user;
       setMessage("Signed in.", false);
       render();
+      // A run played signed-out is held client-side rather than thrown away.
+      // Redeem it now, while its token is still inside the server's 30-minute
+      // window, so "sign in to keep that score" actually keeps it.
+      redeemHeldRunIfAny();
     } catch (err) {
       setMessage(err.message || "Google sign-in failed.", true);
     }
+  }
+
+
+  async function redeemHeldRunIfAny() {
+    const scores = window.SnakeRunScores;
+    if (!scores || typeof scores.redeemHeldRun !== "function") return;
+    if (!scores.peekHeldRun()) return;
+    const result = await scores.redeemHeldRun();
+    if (!result || !result.ok) return;
+    const data = result.data || {};
+    const held = result.held || {};
+    const message = data.globalBest
+      ? "Saved. New top score " + held.score + "."
+      : data.personalBest
+        ? "Saved. Personal best " + held.score + "."
+        : "Saved your " + held.score + " run.";
+    setMessage(message, false);
+    if (typeof window.refreshBestLine === "function") window.refreshBestLine();
+    document.dispatchEvent(new CustomEvent("snake:held-run-saved", { detail: { data, held } }));
   }
 
   async function logout() {

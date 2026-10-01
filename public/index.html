@@ -8,7 +8,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Retro Snake Arena">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Retro Snake Arena</title>
+    <title>Retro Snake Arena — a browser game by Noorun Nobi</title>
+    <meta name="description" content="A Snake game with three modes: Arena, Classic and Rune Maze. I wrote it in plain JavaScript with no front-end framework, and you can play without signing in.">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preload" href="/fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23030609'/%3E%3Cpath fill='%2346f2a4' d='M6 10h16v4h4v12H10v-4H6z'/%3E%3Crect x='20' y='18' width='3' height='3' fill='%23030609'/%3E%3C/svg%3E">
@@ -127,7 +128,7 @@
           <label class="field">
             <span>Leaderboard initials</span>
             <input id="playerInitials" maxlength="3" autocomplete="off" placeholder="ABC" aria-describedby="initialsHint">
-            <small class="field-note" id="initialsHint">3 letters or digits — the only name on the public board</small>
+            <small class="field-note" id="initialsHint">3 letters or digits. It's the only name on the public board. Sign in to save your scores.</small>
           </label>
           <fieldset class="field choice-field">
             <legend>Colour</legend>
@@ -158,15 +159,6 @@
                 <option value="high">High</option>
               </select>
             </label>
-            <label class="field arena-setting">
-              <span>Animation smoothness</span>
-              <select id="setupMaxFps" aria-label="Animation smoothness">
-                <option value="0">Automatic</option>
-                <option value="60">60 frames per second</option>
-                <option value="120">120 frames per second</option>
-              </select>
-            </label>
-            <label class="toggle"><input type="checkbox" id="setupShowFps"><span>Show frame rate</span></label>
             <label class="toggle"><input type="checkbox" id="setupSound"><span>Sound</span></label>
             <label class="toggle"><input type="checkbox" id="tickSoundToggle"><span>Move sound</span></label>
             <label class="toggle"><input type="checkbox" id="setupReducedMotion"><span>Reduce motion</span></label>
@@ -246,41 +238,24 @@
         </div>
         <div class="arena-solo-objective" id="arenaObjective"></div>
       </div>
-      <div class="arena-toast" id="arenaToast"></div>
+      <div class="arena-mobile-hud">
+        <div class="arena-mobile-topbar">
+          <div class="arena-score-chip" id="arenaMobileScore" role="img" aria-label="Score 0">0</div>
+          <div class="arena-combo-track" id="arenaComboTrack" aria-hidden="true" hidden>
+            <span id="arenaComboBar"></span>
+          </div>
+          <div class="arena-powerups" id="arenaPowerups"></div>
+          <div class="arena-rank-chip" id="arenaRankChip" role="img" aria-label="Current rank unavailable">#--</div>
+        </div>
+      </div>
+      <!-- Reserved Arena message slot; it stays outside the higher overlay slot. -->
+      <div class="arena-toast" id="arenaToast" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="arena-feed" id="arenaFeed"></div>
       <div class="arena-biome" id="arenaBiome"></div>
-      <div class="arena-fps" id="arenaFps" hidden>Frame rate: 0</div>
-      <button class="arena-settings-toggle" id="arenaSettingsToggle" aria-label="Open game settings" title="Open game settings">⚙</button>
-      <div class="arena-settings-panel" id="arenaSettingsPanel" hidden>
-        <label class="touch-only">Touch controls
-          <select id="arenaTouchControlSel" aria-label="Touch controls">
-            <option value="joystick">Drag to steer</option>
-            <option value="arrows">Arrow buttons</option>
-          </select>
-        </label>
-        <label class="touch-only"><input type="checkbox" id="arenaLeftHandedToggle"> Left-handed controls</label>
-        <label><input type="checkbox" id="arenaSoundOn"> Sound</label>
-        <label><input type="checkbox" id="arenaShowFps"> Show frame rate</label>
-        <label>Visual quality
-          <select id="arenaQuality" aria-label="Visual quality">
-            <option value="low">Low</option>
-            <option value="balanced">Balanced</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-        <label>Animation smoothness
-          <select id="arenaMaxFpsSel" aria-label="Animation smoothness">
-            <option value="0">Automatic (recommended)</option>
-            <option value="60">60 frames per second</option>
-            <option value="120">120 frames per second</option>
-          </select>
-        </label>
-        <label><input type="checkbox" id="arenaReducedMotion"> Reduce motion and effects</label>
-      </div>
       <button class="arena-pause-btn" id="arenaPauseBtn" type="button" aria-label="Pause game" aria-pressed="false" title="Pause (Esc or P)">&#10074;&#10074;</button>
       <div class="arena-touch-controls" id="arenaTouchControls">
-        <button class="arena-touch-btn arena-boost-btn" id="arenaBoostBtn" type="button"><span class="ico" aria-hidden="true">⚡</span>BOOST</button>
-        <button class="arena-touch-btn arena-fire-btn" id="arenaFireBtn" type="button"><span class="ico" aria-hidden="true">🚀</span>FIRE</button>
+        <button class="arena-touch-btn arena-boost-btn" id="arenaBoostBtn" type="button" aria-pressed="false" aria-disabled="false"><span class="ico" aria-hidden="true">&gt;&gt;</span><span class="arena-action-label">BOOST</span></button>
+        <button class="arena-touch-btn arena-fire-btn" id="arenaFireBtn" type="button" aria-label="Fire rocket" aria-pressed="false" hidden><span class="ico" aria-hidden="true">*</span><span class="arena-action-label">FIRE</span><span class="arena-ammo-badge" id="arenaFireAmmo" aria-hidden="true">0</span></button>
       </div>
       <div class="arena-arrows" id="arenaArrows">
         <button class="arena-arrow-btn" id="arenaLeftBtn" type="button" aria-label="Turn left">&#9664;</button>
@@ -292,13 +267,34 @@
           <div class="arena-hint-title">How to play</div>
           <div>Mouse: steer with cursor, click to fire rockets.</div>
           <div>Keyboard: A/D or arrows steer, W/Up/Shift boosts.</div>
-          <div>Touch: drag on one side to steer; hold BOOST and tap FIRE on the other. (Left-handed? Flip it in setup.)</div>
+          <div>Touch: drag anywhere to steer; hold BOOST and tap FIRE with your other thumb. Change touch options from Pause.</div>
           <button id="arenaHintDismiss" type="button">Got it</button>
         </div>
         <div class="arena-pause" id="arenaPause" role="dialog" aria-modal="true" aria-labelledby="arenaPauseTitle" hidden>
           <section class="overlay-card arena-pause-card">
             <p class="arena-mode-tag">Arena &middot; <strong id="arenaPausePlayer">Player</strong></p>
             <h2 id="arenaPauseTitle">Paused</h2>
+            <div class="arena-pause-settings" role="group" aria-label="Arena settings">
+              <label class="arena-pause-setting touch-only">
+                <span>Touch controls</span>
+                <select id="arenaTouchControlSel" aria-label="Touch controls">
+                  <option value="joystick">Drag to steer</option>
+                  <option value="arrows">Arrow buttons</option>
+                </select>
+              </label>
+              <label class="arena-pause-setting touch-only">
+                <span>Left-handed</span>
+                <input type="checkbox" id="arenaLeftHandedToggle">
+              </label>
+              <label class="arena-pause-setting">
+                <span>Reduce motion</span>
+                <input type="checkbox" id="arenaReducedMotion">
+              </label>
+              <label class="arena-pause-setting">
+                <span>Sound</span>
+                <input type="checkbox" id="arenaSoundOn">
+              </label>
+            </div>
             <div class="overlay-actions">
               <button id="arenaResumeBtn" type="button">Resume</button>
               <button id="arenaRestartRunBtn" type="button">Restart run</button>

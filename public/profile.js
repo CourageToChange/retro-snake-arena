@@ -5,8 +5,8 @@
 // in from. Settings live in localStorage; this mirrors them to the server.
 (function () {
   const SETTING_KEYS = [
-    "arenaQuality", "arenaSensitivity", "arenaSoundOn", "arenaShowFps",
-    "arenaReducedMotion", "arenaTouchControl", "arenaLeftHanded", "arenaMaxFps",
+    "arenaQuality", "arenaSensitivity", "arenaSoundOn",
+    "arenaReducedMotion", "arenaTouchControl", "arenaLeftHanded",
     "arenaHeadShape", "arenaSkin", "arenaDisplayName", "arenaInitials"
   ];
   const origSet = localStorage.setItem.bind(localStorage);

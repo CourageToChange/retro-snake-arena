@@ -12,6 +12,7 @@ const {
   validateScorePlausibility
 } = require("../server/integrity");
 const { TtlRateLimiter } = require("../server/rateLimiter");
+const { HASHED_ASSETS, renderShell } = require("../server/shellAssets");
 
 const tempStem = path.join(os.tmpdir(), "snake-v1-server-smoke-" + process.pid + "-" + Date.now());
 const databasePath = tempStem + ".sqlite";
@@ -512,6 +513,70 @@ async function run() {
       check(body.byteLength > 0, "Static route returned an empty body: " + route);
     }
 
+    // Content-addressed shell assets (S14). The point of the whole change is that a deploy
+    // moves the asset URL, so a four-hour edge cache cannot serve stale JS against fresh HTML.
+    const shell = renderShell();
+    check(/^[0-9a-f]{12}$/.test(shell.hash), "Shell hash is not a 12-character hex digest");
+
+    const servedHome = await (await request(baseUrl, "/")).text();
+    for (const asset of HASHED_ASSETS) {
+      check(
+        servedHome.includes('"/a/' + shell.hash + asset + '"'),
+        "Served HTML does not point at the content-addressed " + asset
+      );
+      check(
+        !servedHome.includes('"' + asset + '"'),
+        "Served HTML still carries the unhashed reference to " + asset +
+        ", so returning players can run it stale"
+      );
+    }
+
+    const hashedAsset = await request(baseUrl, "/a/" + shell.hash + "/arena/arena.js");
+    const hashedBody = await hashedAsset.text();
+    check(hashedAsset.status === 200, "A content-addressed asset did not serve");
+    const immutableHeader = hashedAsset.headers.get("cache-control") || "";
+    check(
+      immutableHeader.includes("immutable") && immutableHeader.includes("max-age=31536000"),
+      "The current hash must be promised immutable, got: " + immutableHeader
+    );
+    const plainAsset = await request(baseUrl, "/arena/arena.js");
+    check(hashedBody === await plainAsset.text(),
+      "The content-addressed asset served different bytes from its real path");
+
+    // A stale reference must still WORK. It is the one request a client with an old sw.js
+    // makes, and a 404 there would break the shell rather than quietly self-heal.
+    const staleHash = await request(baseUrl, "/a/000000000000/arena/arena.js");
+    check(staleHash.status === 200, "A stale asset hash must still serve, not 404");
+    const staleHeader = staleHash.headers.get("cache-control") || "";
+    check(!staleHeader.includes("immutable"),
+      "A stale hash must NOT be promised immutable, got: " + staleHeader);
+    await staleHash.text();
+
+    const missingHashed = await request(baseUrl, "/a/" + shell.hash + "/not-a-real-asset.js");
+    check(missingHashed.status === 404, "A missing asset under a valid hash must 404");
+    await missingHashed.text();
+
+    for (const escape of ["/a/" + shell.hash + "/../server.js",
+                          "/a/" + shell.hash + "/../../server.js"]) {
+      const climbed = await request(baseUrl, escape);
+      check(climbed.status !== 200, "Path traversal served a file: " + escape);
+      await climbed.text();
+    }
+
+    const servedWorker = await (await request(baseUrl, "/sw.js")).text();
+    check(servedWorker.includes('"retro-snake-arena-v47-' + shell.hash + '"'),
+      "The served service worker does not stamp the shell hash into its cache name");
+    for (const asset of HASHED_ASSETS) {
+      check(servedWorker.includes('"/a/' + shell.hash + asset + '"'),
+        "The served service worker pre-caches the unhashed " + asset);
+    }
+
+    // The files ON DISK must stay canonical. Nothing is generated into public/, which is what
+    // lets scripts/validate-app-assets.js keep asserting against the real source unchanged.
+    const diskHtml = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
+    check(diskHtml.includes('src="/client.js"'),
+      "public/index.html was rewritten on disk; the rewrite must happen at serve time only");
+
     const home = await request(baseUrl, "/");
     const csp = home.headers.get("content-security-policy") || "";
     check(home.headers.get("x-content-type-options") === "nosniff", "nosniff header is missing");
@@ -805,7 +870,7 @@ async function run() {
     const sanitizedRun = await startRun(baseUrl, "arena", { cookie });
     result = await submitScore(
       baseUrl,
-      scoreBody("arena", sanitizedRun.runToken, 300, 1000, "her"),
+      scoreBody("arena", sanitizedRun.runToken, 501, 1000, "her"),
       ipHeaders("203.0.113.31", { cookie })
     );
     check(result.response.status === 200, "Signed score with lowercase initials was rejected");
@@ -813,6 +878,20 @@ async function run() {
     check(result.body.some((row) => row.name === "HER"), "Leaderboard initials were not uppercased");
     check(result.body.every((row) => !/[<>]/.test(row.name)),
       "Leaderboard returned a name containing markup");
+
+    // A signed-in run that is NOT a new personal best is accepted but adds no row.
+    const rowsBeforeRepeat = _test.countLeaderboardRows("arena");
+    const repeatRun = await startRun(baseUrl, "arena", { cookie });
+    result = await submitScore(
+      baseUrl,
+      scoreBody("arena", repeatRun.runToken, 200, 1000, "ARH"),
+      ipHeaders("203.0.113.32", { cookie })
+    );
+    check(result.response.status === 200 && result.body.personalBest === false &&
+      result.body.best === 501,
+      "Signed-in repeat run response is wrong");
+    check(_test.countLeaderboardRows("arena") === rowsBeforeRepeat,
+      "A run that was not a personal best added a leaderboard row");
 
     for (let score = 1; score <= 230; score += 1) {
       _test.recordArenaScore("SED", 1000 + score, "arena");

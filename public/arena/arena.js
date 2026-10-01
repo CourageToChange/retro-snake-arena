@@ -5,7 +5,7 @@
  * Self-contained: exposes window.ArenaGame.{start, stop} and wires its own
  * buttons. It does NOT touch the Classic grid game in client.js.
  *
- * Design notes for whoever picks this up next:
+ * Design notes for whoever picks this up next (see NEXT_STEPS.md):
  *  - World is continuous floats, circular boundary of radius WORLD_RADIUS.
  *  - The player and every bot use the SAME snake model + movement, so bots
  *    look identical to real snakes.
@@ -16,6 +16,18 @@
  *    layer so they sprint only when the path ahead is readable.
  */
 (function () {
+
+// A keystroke aimed at a text box is not a game control. Without this, the WASD
+// bindings below swallowed the very letters people need to type: entering
+// "Adam" in the initials box produced "m", because W, A, S and D each hit
+// preventDefault() before the character could reach the field. Reported by a
+// play-tester who could not type his own name.
+function isTypingTarget(target) {
+  if (!target || typeof target.tagName !== "string") return false;
+  const tag = target.tagName.toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable === true;
+}
+
   "use strict";
 
   // ---- Config -------------------------------------------------------------
@@ -43,6 +55,10 @@
     balanced: { dprCap: 2.5, deco: 72, snow: 100, rain: 130, shake: 6, effectScale: 0.82, particleCap: 260, effectCap: 130, scenery: 2560 },
     high: { dprCap: Infinity, deco: 96, snow: 140, rain: 180, shake: 8, effectScale: 1, particleCap: 380, effectCap: 190, scenery: 3072 }
   };
+  // NOTE: there is deliberately NO automatic quality downshift. Respect the
+  // player's chosen tier (and their saved account setting) rather than silently
+  // switching mid-game. Frame rate is held at 60 by the gate in loop().
+
   const BOT_AI_BASE = 0.075;        // bot reaction time — fixed, NOT quality-dependent
   const BOT_PROBE_DISTANCES = [70, 130, 210];
   const BOT_HEADING_OFFSETS = {
@@ -91,6 +107,12 @@
     bomb:     { cat: "hazard",  icon: "bomb",     color: "#20242b", r: 14, weight: 14 }
   };
   const ITEM_LABEL = ARENA_RULES.ITEM_LABELS || { speed: "FAST", slow: "SLOW", magnet: "MAGNET", ghost: "GHOST" };
+  const EFFECT_HUD = {
+    speed: { code: "FA", duration: ITEM_KINDS.thunder?.dur || 5 },
+    slow: { code: "SL", duration: ITEM_KINDS.mushroom?.dur || 4 },
+    magnet: { code: "MA", duration: ITEM_KINDS.magnet?.dur || 6 },
+    ghost: { code: "GH", duration: ITEM_KINDS.ghost?.dur || 4 }
+  };
 
   const SKY_DROP_MIN_DELAY = ARENA_RULES.SKY_DROP?.minDelay || 18;
   const SKY_DROP_MAX_DELAY = ARENA_RULES.SKY_DROP?.maxDelay || 32;
@@ -166,9 +188,13 @@
   let comboTimer = 0;
   let comboMultiplier = 1;
   let comboBest = 0;
+  let comboAnnouncedMax = 1;   // highest multiplier announced this RUN (not this life)
   let nearMissCooldown = 0;
   let feed = [];
   let lastDeathReason = "";
+  let lastPlayerRank = null;
+  let rankFlashTimer = null;
+  let fireWasReady = false;
   const pendingDeathSnakes = [];
   const pendingDeathReasons = [];
 
@@ -178,7 +204,16 @@
   const joystick = { active: false, id: null, baseX: 0, baseY: 0, x: 0, y: 0 }; // mobile touch
   let leftHanded = false;      // mirror touch layout (steer right, actions left)
   let touchControl = "joystick"; // "joystick" (drag) or "arrows" (turn buttons)
-  let maxFps = 0;              // 0 = match display (rAF/vsync); else cap to N fps
+  // Frame rate is FIXED at 60 for every device — no longer a user setting.
+  // Uncapped rAF ran at the display's refresh (100+ on a high-refresh monitor),
+  // which is wasted work; and once the renderer misses that budget the browser
+  // falls to a vsync DIVISOR, so a 144Hz display drops 144 -> 72 -> 48 -> 36 in
+  // hard steps. That cliff is what made fullscreen feel like ~30 while a smaller
+  // window sat at 100+. Asking for 60 leaves a 16.7ms budget the renderer can
+  // actually hit, so the cadence stays even.
+  const TARGET_FPS = 60;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
+  let nextFrameDue = 0;
   let isPhone = false;         // small screen: smaller, less cluttered floating text
   let controlMode = "mouse";   // "mouse" | "keys" — keyboard latches and wins until the mouse moves
   let usingTouch = false;      // mobile: aim rockets by auto-targeting instead of a hover cursor
@@ -189,17 +224,10 @@
   let difficultyStart = 0;     // performance.now() when the current life began
   let arenaScoreRun = null;
   let displayedDeathRun = null;
-  let showFps = false;
   let qualityTier = "balanced";
   let qualityUserOverride = false;
-  let qualityProbeTime = 0;
-  let qualityProbeFrames = 0;
-  let qualityProbeDone = false;
   let reducedMotion = false;
   let soundOn = true;
-  let fpsFrames = 0;
-  let fpsTime = 0;
-  let fpsValue = 0;
   let frameMs = 0;
   let hudThrottle = 0;
   let playerName = "Player";
@@ -229,23 +257,26 @@
 
     const savedSens = parseFloat(localStorage.getItem("arenaSensitivity"));
     if (!isNaN(savedSens)) sensitivity = clamp(savedSens, 0.3, 1.3);
-    showFps = localStorage.getItem("arenaShowFps") === "true";
     loadQualityPreference();
-    reducedMotion = localStorage.getItem("arenaReducedMotion") === "true";
-    maxFps = parseInt(localStorage.getItem("arenaMaxFps"), 10) || 0;
+    const savedReducedMotion = localStorage.getItem("arenaReducedMotion");
+    reducedMotion = savedReducedMotion === null
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : savedReducedMotion === "true";
     soundOn = localStorage.getItem("arenaSoundOn") !== "false";
+    leftHanded = localStorage.getItem("arenaLeftHanded") === "true";
+    touchControl = localStorage.getItem("arenaTouchControl") === "arrows" ? "arrows" : "joystick";
     sound.setMuted(!soundOn);
 
     ensureDom();
     if (window.requestGameWakeLock) window.requestGameWakeLock();
+    resetToastQueue();
     syncSettingsControls();
     maybeShowControlsHint();
     root.hidden = false;
     root.classList.remove("show-cursor");
-    leftHanded = localStorage.getItem("arenaLeftHanded") === "true";
-    touchControl = localStorage.getItem("arenaTouchControl") === "arrows" ? "arrows" : "joystick";
     root.classList.toggle("arena-left", leftHanded);
     root.classList.toggle("arrows-mode", touchControl === "arrows");
+    root.classList.toggle("arena-reduced-motion", reducedMotion);
     document.body.classList.add("arena-active");
     document.body.classList.add("is-playing");
     document.title = "Arena - Retro Snake Arena";
@@ -270,16 +301,15 @@
     headPulse = 0;
     resetCombo();
     comboBest = 0;
+    // Deliberately reset per RUN, not per life: respawn() leaves it alone so a
+    // player who dies often is not re-told about x1.25 every life.
+    comboAnnouncedMax = 1;
     difficulty = 0;
     difficultyStart = performance.now();
     feed = [];
     lastDeathReason = "";
-    fpsFrames = 0;
-    fpsTime = 0;
-    fpsValue = 0;
-    qualityProbeTime = 0;
-    qualityProbeFrames = 0;
-    qualityProbeDone = false;
+    lastPlayerRank = null;
+    fireWasReady = false;
     for (let i = 0; i < FOOD_TARGET; i += 1) foods.push(randomFood());
     for (let i = 0; i < ITEM_TARGET; i += 1) items.push(randomItem());
 
@@ -325,12 +355,15 @@
     rafId = requestAnimationFrame(loop);
     hidePause();
     hideDeath();
-    showToast(`${env.name} · ${weather.toUpperCase()}`);
+    announceEnvironment(true);   // a new run always orients the player
   }
 
   function stop() {
     running = false;
     paused = false;
+    resetToastQueue();
+    clearTimeout(rankFlashTimer);
+    rankFlashTimer = null;
     cancelArenaScoreRun();
     displayedDeathRun = null;
     hidePause();
@@ -473,12 +506,20 @@
       lastTs = ts;
       return;
     }
-    // requestAnimationFrame already renders in step with the display (vsync), so
-    // there is no tearing. An optional cap throttles to maxFps for weaker devices.
-    if (maxFps > 0 && ts - lastTs < (1000 / maxFps) - 0.5) return;
+    // Hold to 60fps. Deliberately a drift-corrected accumulator, not
+    // `ts - lastTs < interval`: that naive form only lets a frame through once the
+    // gap EXCEEDS the interval, so on a 144Hz display (6.94ms per refresh) it
+    // passed every 3rd frame and delivered 48fps, not 60. Advancing a due-time by
+    // exactly one interval lets the cadence alternate 2,2,3 refreshes and average
+    // a true 60.
+    if (nextFrameDue === 0) nextFrameDue = ts;
+    if (ts < nextFrameDue - 0.5) return;
+    nextFrameDue += FRAME_INTERVAL;
+    // Re-anchor after a stall (tab in the background, a long GC) so we don't then
+    // sprint through a backlog of catch-up frames.
+    if (nextFrameDue < ts) nextFrameDue = ts + FRAME_INTERVAL;
     const dt = Math.min(0.05, (ts - lastTs) / 1000); // clamp big gaps (tab switch)
     lastTs = ts;
-    updateFps(dt);
     update(dt, ts);
     render(ts);
   }
@@ -1123,6 +1164,10 @@
       else s.ammo = Math.min(MISSILE_MAX, (s.ammo || 0) + 1);
       if (s.isPlayer) {
         spawnPickupFeedback(it, def, "+ROCKET");
+        // The FIRE button materialises next to the thumb on this pickup; its own
+        // 150ms scale-in sits in peripheral vision while the player watches the
+        // centre of the screen, so say it in the message slot too.
+        if (missileAmmo === 1) showToast("ROCKET READY");
         sound.power();
       } else {
         spawnBurst(it.x, it.y, def.color, 8);
@@ -1195,6 +1240,7 @@
     missileAmmo -= 1;
     fireMissileFrom(player, getAimAngle());
     sound.fire();
+    updateHud();
   }
 
   function fireMissileFrom(owner, aim) {
@@ -1334,19 +1380,95 @@
       recomputeSize(player);
       spawnBurst(player.x, player.y, "#ffd23f", 24);
       sound.power();
-      showToast(`✔ ${objective.text}   +${objective.reward}`);
+      showToast(`GOAL +${objective.reward}`);
       newObjective();
     }
   }
 
   let toastTimer = null;
+  let toastQueue = [];
+  let toastActive = false;
+  const TOAST_VISIBLE_MS = 1800;
+  const TOAST_MAX_AGE_MS = 3000;
+
+  // Single source of truth for "is the phone HUD active", matching the CSS
+  // capability query in arena.css. Cached, because updateHud() consults it ~6.7x/s.
+  const phoneLayoutQuery = typeof window.matchMedia === "function"
+    ? window.matchMedia("(pointer: coarse), (max-height: 500px)")
+    : null;
+  function isPhoneLayout() {
+    return phoneLayoutQuery ? phoneLayoutQuery.matches : false;
+  }
+
+  // Biome/weather is re-randomised on every respawn, so announcing it each time
+  // produced roughly one message every nine seconds on its own. Announce only when
+  // it actually changed, or after a decent gap.
+  let lastEnvAnnouncement = "";
+  let lastEnvAnnouncedAt = 0;
+  const ENV_ANNOUNCE_COOLDOWN_MS = 20000;
+
+  function announceEnvironment(force) {
+    const text = `${env.name} · ${weather.toUpperCase()}`;
+    const now = Date.now();
+    if (!force && text === lastEnvAnnouncement
+        && now - lastEnvAnnouncedAt < ENV_ANNOUNCE_COOLDOWN_MS) return;
+    lastEnvAnnouncement = text;
+    lastEnvAnnouncedAt = now;
+    showToast(text);
+  }
+
   function showToast(text) {
     const el = document.getElementById("arenaToast");
     if (!el) return;
-    el.textContent = text;
+    // Derive the budget from the slot's real width rather than assuming a 360px
+    // phone: a 390px or 412px handset has a wider slot and was being given 60.
+    // Only on phones - the desktop toast is shrink-wrapped, so its clientWidth
+    // depends on the text already in it and would give a circular answer.
+    let mobileBudget = 60;
+    if (isPhoneLayout()) {
+      const slotWidth = el.clientWidth || 0;
+      mobileBudget = slotWidth > 0 ? Math.max(10, Math.floor((slotWidth - 20) / 12)) : 26;
+    }
+    const glyphs = Array.from(String(text));
+    const message = glyphs.length > mobileBudget
+      ? glyphs.slice(0, mobileBudget - 1).join("") + "…"
+      : glyphs.join("");
+    toastQueue.push({ text: message, queuedAt: Date.now() });
+    drainToastQueue();
+  }
+
+  function drainToastQueue() {
+    if (toastActive) return;
+    const el = document.getElementById("arenaToast");
+    if (!el) return;
+    const now = Date.now();
+    toastQueue = toastQueue.filter((item) => now - item.queuedAt <= TOAST_MAX_AGE_MS);
+    const next = toastQueue.shift();
+    if (!next) return;
+
+    toastActive = true;
+    el.textContent = next.text;
     el.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+    toastTimer = setTimeout(() => {
+      el.classList.remove("show");
+      toastTimer = setTimeout(() => {
+        toastActive = false;
+        drainToastQueue();
+      }, 250);
+    }, TOAST_VISIBLE_MS);
+  }
+
+  function resetToastQueue() {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+    toastQueue = [];
+    toastActive = false;
+    const el = document.getElementById("arenaToast");
+    if (el) {
+      el.classList.remove("show");
+      el.textContent = "";
+    }
   }
 
   // ---- Combo / risk-reward -----------------------------------------------
@@ -1367,6 +1489,13 @@
     comboBest = Math.max(comboBest, comboCount);
     comboTimer = COMBO_WINDOW;
     comboMultiplier = 1 + Math.min(2, Math.floor(comboCount / 4) * 0.25);
+    // Announce a multiplier only the first time it is reached in a run. The combo
+    // window lapsing resets the multiplier, so comparing against the previous value
+    // re-announced x1.25 every few seconds - over half of all messages on screen.
+    if (comboMultiplier > comboAnnouncedMax) {
+      comboAnnouncedMax = comboMultiplier;
+      showToast(`COMBO ×${comboMultiplier.toFixed(2)}`);
+    }
 
     const bonus = Math.floor(baseReward * (comboMultiplier - 1));
     // Routine fruit no longer pops a combo label (it's already in the HUD and was
@@ -1476,6 +1605,18 @@
       submitArenaScore(Math.round(s.score), completedRun);
     }
     // Bot deaths no longer spam the feed (they happen constantly in the arena).
+
+    // Release a dead bot's geometry now instead of holding it until the array
+    // compacts at BOT_TARGET + 40. Nothing reads it: hitsAnotherSnake,
+    // findSafeSpawn, drawSnakes and projectileHitIndex all skip !alive, no snake
+    // is ever revived in place, and the food drop and death feedback above have
+    // already consumed what they need. Measured 2026-08-14: dead snakes were
+    // holding up to ~9,900 trail points. The player's is kept, because the death
+    // overlay is still on screen looking at it.
+    if (!s.isPlayer) {
+      s.trail = [];
+      s.body = [];
+    }
   }
 
   // ---- Particles ----------------------------------------------------------
@@ -1672,17 +1813,6 @@
       write += 1;
     }
     particles.length = write;
-  }
-
-  function updateFps(dt) {
-    fpsFrames += 1;
-    fpsTime += dt;
-    updateQualityProbe(dt);
-    if (fpsTime >= 0.5) {
-      fpsValue = Math.round(fpsFrames / fpsTime);
-      fpsFrames = 0;
-      fpsTime = 0;
-    }
   }
 
   function updateEffects(dt) {
@@ -2451,12 +2581,26 @@
     ctx.fillStyle = s.palette.body;
     // Tail -> head so the head overlaps cleanly.
     const bodyStep = s.isPlayer ? 1 : (qualityTier === "low" || camera.scale < 0.65 ? 2 : 1);
+    // The glow radius, colour and alpha are the same for every segment of this
+    // snake, so resolve the sprite once instead of rebuilding a cache key string
+    // and doing a save/restore per segment (419-1021 of them a frame).
+    // Measured 2026-08-14: drawSnake 3.308 -> 2.566 ms/frame at CPU x4, and
+    // proven pixel-identical (0 differing bytes of 4,410,000).
+    const glowR = r * (s.isPlayer ? 2.25 : 1.85);
+    const glowSpr = (qualityTier === "low" || glowR <= 0) ? null : glowSprite(glowR, s.palette.glow);
+    const glowAlpha = s.isPlayer ? 0.52 : 0.36;
+    const dotR = Math.max(1.5, r);
+    const prevAlpha = ctx.globalAlpha;
     for (let i = s.body.length - 1; i >= 0; i -= bodyStep) {
       const p = worldToScreen(s.body[i].x, s.body[i].y);
       if (p.x < -r || p.x > cw + r || p.y < -r || p.y > ch + r) continue;
-      drawGlowSprite(p.x, p.y, r * (s.isPlayer ? 2.25 : 1.85), s.palette.glow, s.isPlayer ? 0.52 : 0.36);
+      if (glowSpr) {
+        ctx.globalAlpha = glowAlpha;
+        ctx.drawImage(glowSpr.canvas, p.x - glowSpr.size / 2, p.y - glowSpr.size / 2, glowSpr.size, glowSpr.size);
+        ctx.globalAlpha = prevAlpha;
+      }
       ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(1.5, r), 0, TWO_PI);
+      ctx.arc(p.x, p.y, dotR, 0, TWO_PI);
       ctx.fill();
     }
     ctx.restore();
@@ -2704,59 +2848,158 @@
 
   // ---- HUD ----------------------------------------------------------------
   function updateHud() {
+    // Read the capability query once per call, then skip the desktop-only surfaces
+    // on phones. This runs ~6.7x/s and was rebuilding a 5-row innerHTML leaders
+    // list, the kill feed and document.title inside elements that are display:none
+    // under the phone media query.
+    const phoneLayout = isPhoneLayout();
     const scoreEl = document.getElementById("arenaScore");
+    const mobileScoreEl = document.getElementById("arenaMobileScore");
     const rankEl = document.getElementById("arenaRanks");
-    if (scoreEl) scoreEl.textContent = String(Math.round(player.score));
+    const scoreText = String(Math.round(player.score));
+    if (scoreEl) scoreEl.textContent = scoreText;
+    if (mobileScoreEl) {
+      const formattedScore = Math.round(player.score).toLocaleString("en-GB");
+      const scoreLength = Array.from(formattedScore).length;
+      const scoreWidth = scoreLength <= 3 ? 84 : scoreLength === 4 ? 108 : 120;
+      mobileScoreEl.textContent = formattedScore;
+      mobileScoreEl.setAttribute("aria-label", `Score ${formattedScore}`);
+      mobileScoreEl.style.fontSize = scoreLength <= 5 ? "20px" : scoreLength === 6 ? "16px" : "14px";
+      mobileScoreEl.parentElement?.style.setProperty("--arena-score-width", `${scoreWidth}px`);
+    }
 
     const effEl = document.getElementById("arenaEffects");
-    if (effEl) {
-      const active = [];
-      for (const k in player.effects) {
-        if (ITEM_LABEL[k]) active.push(`${ITEM_LABEL[k]} ${player.effects[k].toFixed(1)}s`);
-      }
-      effEl.textContent = active.join("   ");
+    const activeEffects = [];
+    for (const key of Object.keys(EFFECT_HUD)) {
+      if (player.effects[key] > 0) activeEffects.push(key);
     }
+    if (effEl) {
+      effEl.textContent = activeEffects
+        .map((key) => `${ITEM_LABEL[key]} ${player.effects[key].toFixed(1)}s`)
+        .join("   ");
+    }
+    renderPowerupPills(activeEffects.slice(0, 4));
+
     const ammoEl = document.getElementById("arenaAmmo");
     if (ammoEl) ammoEl.textContent = String(missileAmmo);
+    const fireBtn = document.getElementById("arenaFireBtn");
+    const fireBadge = document.getElementById("arenaFireAmmo");
+    const fireReady = missileAmmo > 0;
+    if (fireBtn) {
+      if (fireReady && !fireWasReady) {
+        fireBtn.hidden = false;
+        fireBtn.classList.add("ammo-ready");
+        setTimeout(() => fireBtn.classList.remove("ammo-ready"), 150);
+      } else {
+        fireBtn.hidden = !fireReady;
+      }
+      fireBtn.setAttribute("aria-label", fireReady
+        ? `Fire rocket, ${missileAmmo} remaining`
+        : "Fire rocket, no ammunition");
+      if (!fireReady) {
+        fireBtn.classList.remove("active");
+        fireBtn.setAttribute("aria-pressed", "false");
+      }
+    }
+    if (fireBadge) fireBadge.textContent = String(missileAmmo);
+    fireWasReady = fireReady;
+
+    const boostBtn = document.getElementById("arenaBoostBtn");
+    if (boostBtn) {
+      const boostAvailable = player.alive && player.mass > 5;
+      boostBtn.setAttribute("aria-disabled", boostAvailable ? "false" : "true");
+      boostBtn.setAttribute("aria-pressed", boosting && boostAvailable ? "true" : "false");
+      if (!boostAvailable) boostBtn.classList.remove("active");
+    }
+
     const comboEl = document.getElementById("arenaCombo");
     if (comboEl) {
       comboEl.textContent = comboCount > 0
         ? `Combo ${comboCount}  ×${comboMultiplier.toFixed(2)}  ${comboTimer.toFixed(1)}s`
         : "";
     }
-    const fpsEl = document.getElementById("arenaFps");
-    if (fpsEl) {
-      fpsEl.hidden = !showFps;
-      fpsEl.textContent = `Frame rate: ${fpsValue}`;
-    }
+    const comboTrack = document.getElementById("arenaComboTrack");
+    const comboBar = document.getElementById("arenaComboBar");
+    if (comboTrack) comboTrack.hidden = comboTimer <= 0;
+    if (comboBar) comboBar.style.width = `${clamp(comboTimer / COMBO_WINDOW, 0, 1) * 100}%`;
     const biomeEl = document.getElementById("arenaBiome");
-    if (biomeEl && player.alive) biomeEl.textContent = biomeAt(player.x, player.y);
+    if (biomeEl && player.alive && !phoneLayout) biomeEl.textContent = biomeAt(player.x, player.y);
     const objEl = document.getElementById("arenaObjective");
-    if (objEl && objective) {
+    if (objEl && objective && !phoneLayout) {
       objEl.textContent = `Goal: ${objective.text} (${Math.min(objective.progress, objective.target)}/${objective.target})`;
     }
 
-    if (rankEl) {
-      const top = snakes.filter((s) => s.alive)
-        .slice()
-        .sort((a, b) => b.mass - a.mass)
-        .slice(0, 5);
+    // Rank by the same metric the chip 288px to the left displays. It used to sort
+    // by mass while sitting beside a score chip - two different numbers, neither
+    // labelled. "Ranked by mass, not score" was one of the spec's own reasons for
+    // deleting the leaders panel; the chip had inherited it.
+    const ranked = snakes.filter((s) => s.alive)
+      .slice()
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
+    const rankChip = document.getElementById("arenaRankChip");
+    if (rankChip) {
+      const playerRank = ranked.findIndex((s) => s.isPlayer);
+      // Show the field size too: a bare "#20" at spawn reads as a scoreboard
+      // position out of nothing, which is demotivating and uninterpretable.
+      rankChip.textContent = playerRank >= 0 ? `${playerRank + 1}/${ranked.length}` : "--";
+      rankChip.setAttribute("aria-label", playerRank >= 0
+        ? `Rank ${playerRank + 1} of ${ranked.length}`
+        : "Current rank unavailable");
+      if (lastPlayerRank !== null && playerRank >= 0 && playerRank < lastPlayerRank && !reducedMotion) {
+        rankChip.classList.remove("improved");
+        void rankChip.offsetWidth;
+        rankChip.classList.add("improved");
+        clearTimeout(rankFlashTimer);
+        rankFlashTimer = setTimeout(() => rankChip.classList.remove("improved"), 250);
+      }
+      lastPlayerRank = playerRank >= 0 ? playerRank : null;
+    }
+
+    if (rankEl && !phoneLayout) {
+      const top = ranked.slice(0, 5);
       rankEl.innerHTML = top.map((s, idx) => {
         const me = s.isPlayer ? " arena-me" : "";
         return `<li class="arena-rank${me}"><span class="arena-rank-pos">${idx + 1}</span>` +
           `<span class="arena-dot"></span>` +
           `<span class="arena-rank-name">${escapeHtml(s.name)}</span>` +
-          `<span class="arena-rank-score">${Math.round(s.mass)}</span></li>`;
+          // Show the value the list is now sorted by. It displayed mass while
+          // sorting by mass; sorting by score and still printing mass made the
+          // desktop leaders board read out of order (22, 29, 23, 21, 25).
+          `<span class="arena-rank-score">${Math.round(s.score || 0)}</span></li>`;
       }).join("");
       rankEl.querySelectorAll(".arena-dot").forEach((dot, idx) => {
         dot.style.setProperty("--arena-dot", top[idx]?.palette?.body || "#46f2a4");
       });
     }
-    document.title = player.alive
-      ? `Arena: ${Math.round(player.mass)} - ${biomeAt(player.x, player.y)}`
-      : "Arena - Respawn";
-    renderFeed();
+    if (!phoneLayout) {
+      document.title = player.alive
+        ? `Arena: ${Math.round(player.mass)} - ${biomeAt(player.x, player.y)}`
+        : "Arena - Respawn";
+      renderFeed();
+    }
   }
+
+  function renderPowerupPills(activeEffects) {
+    const container = document.getElementById("arenaPowerups");
+    if (!container) return;
+    const fragment = document.createDocumentFragment();
+    for (const key of activeEffects) {
+      const meta = EFFECT_HUD[key];
+      const remaining = player.effects[key];
+      const pill = document.createElement("span");
+      pill.className = "arena-powerup-pill";
+      pill.textContent = meta.code;
+      pill.setAttribute("role", "img");
+      pill.setAttribute("aria-label", `${ITEM_LABEL[key]}, ${remaining.toFixed(1)} seconds remaining`);
+      pill.style.setProperty("--effect-progress", `${clamp(remaining / meta.duration, 0, 1) * 100}%`);
+      fragment.appendChild(pill);
+    }
+    container.replaceChildren(fragment);
+  }
+
+  // The top score, kept from the last leaderboard fetch. A held (signed-out) run
+  // never reaches the server, so there is no response to learn it from.
+  let latestArenaTop = 0;
 
   async function fetchArenaLeaderboard() {
     const el = document.getElementById("arenaBest");
@@ -2767,6 +3010,9 @@
       });
       const rows = await response.json().catch(() => []);
       if (!response.ok || !Array.isArray(rows)) throw new Error("Invalid leaderboard response");
+      latestArenaTop = rows.length && Number.isFinite(Number(rows[0].score))
+        ? Number(rows[0].score)
+        : latestArenaTop;
       renderArenaLeaderboard(el, rows);
     } catch {
       renderArenaLeaderboard(el, []);
@@ -2826,15 +3072,44 @@
       if (noticeEl) noticeEl.textContent = "Beat your best to save a new score.";
       return;
     }
-    if (window.SnakeBests) window.SnakeBests.update("arena", score);
-
     const initials = window.SnakeInitials ? window.SnakeInitials() : "";
     if (score > 0 && !initials) {
       if (noticeEl) noticeEl.textContent = "Set 3 leaderboard initials on the menu to save scores.";
       return;
     }
 
+    // Signed out: hold the run rather than spending its token on a submission the
+    // server will validate and then deliberately not record. Redeemed for real if
+    // the player signs in within the token's 30 minutes.
+    const signedIn = window.SnakeAuth ? window.SnakeAuth.isLoggedIn() : false;
+    if (!signedIn) {
+      const held = await window.SnakeRunScores.holdRun(run, { name: initials || "XXX", score });
+      if (held && window.SnakeBests) window.SnakeBests.update("arena", score);
+      if (displayedDeathRun !== run) return;
+      if (bestEl) {
+        const top = latestArenaTop;
+        if (held && top && score > top) {
+          bestEl.textContent = "You beat the top score with " + formatServerScore(score) +
+            " · sign in to keep it";
+          bestEl.classList.add("record");
+          showToast("Sign in to keep that score");
+          sound.power();
+        } else if (held) {
+          bestEl.textContent = "Score " + formatServerScore(score) + " · sign in to keep it";
+        } else if (top) {
+          bestEl.textContent = "Top score " + formatServerScore(top);
+        }
+      }
+      if (noticeEl && held) noticeEl.textContent = "Sign in and this run is saved automatically.";
+      return;
+    }
+
     const result = await window.SnakeRunScores.submit(run, { name: initials || "XXX", score });
+    // Raise the stored best only once the server has accepted the run, so a run that
+    // was never saved cannot block a later, better-than-saved score.
+    if (result.ok && !result.skipped && window.SnakeBests) {
+      window.SnakeBests.update("arena", result.data && result.data.loggedIn ? result.data.best : score);
+    }
     if (displayedDeathRun !== run) return;
 
     if (result.ok) {
@@ -2858,8 +3133,21 @@
         bestEl.textContent = "Your best " + formatServerScore(data.best) +
           " · Top score " + formatServerScore(data.globalTop);
       } else if (data.globalTop) {
-        bestEl.textContent = "Top score " + formatServerScore(data.globalTop) +
-          " · Sign in to save yours";
+        // A signed-out player who has just BEATEN the record used to be shown the
+        // very score they beat, with no acknowledgement of it — which reads as if
+        // nothing happened. A play-tester hit exactly this and was, fairly, annoyed.
+        // The server does not store anonymous scores, so it reports globalBest:false
+        // and returns the previous top; the comparison has to happen here.
+        if (score > data.globalTop) {
+          bestEl.textContent = "You beat the top score with " + formatServerScore(score) +
+            " · sign in to save it";
+          bestEl.classList.add("record");
+          showToast("Sign in to keep that score");
+          sound.power();
+        } else {
+          bestEl.textContent = "Top score " + formatServerScore(data.globalTop) +
+            " · Sign in to save yours";
+        }
       } else {
         bestEl.textContent = "";
       }
@@ -2931,6 +3219,12 @@
       boosting = false;
       joystick.active = false;
       joystick.id = null;
+      document.getElementById("arenaBoostBtn")?.classList.remove("active");
+      document.getElementById("arenaBoostBtn")?.setAttribute("aria-pressed", "false");
+      document.getElementById("arenaFireBtn")?.classList.remove("active");
+      document.getElementById("arenaFireBtn")?.setAttribute("aria-pressed", "false");
+      document.querySelectorAll(".arena-arrow-btn.active").forEach((button) => button.classList.remove("active"));
+      syncSettingsControls();
       const hintEl = document.getElementById("arenaHint");
       if (hintEl) hintEl.hidden = true;
       const playerEl = document.getElementById("arenaPausePlayer");
@@ -3015,6 +3309,8 @@
     resetCombo();
     comboBest = 0;
     lastDeathReason = "";
+    lastPlayerRank = null;
+    fireWasReady = false;
     // Fresh world each life: new biome + weather so a respawn feels like a new
     // run (also rebuilds the cached scenery/sky for the new environment).
     pickEnvironment();
@@ -3031,7 +3327,8 @@
     hideDeath(true);
     sound.resume();
     if (soundOn) sound.startAmbient(env.name, weather);
-    showToast(`${env.name} · ${weather.toUpperCase()}`);
+    resetToastQueue();
+    announceEnvironment();
   }
 
   // ---- DOM / wiring -------------------------------------------------------
@@ -3061,22 +3358,15 @@
     canvas.addEventListener("mousedown", (e) => { if (e.button === 0) fireMissile(); });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-    // Mobile: the canvas is a virtual steering joystick, but only on the STEERING
-    // side of the screen (left by default; right if left-handed). This keeps the
-    // other thumb free for the BOOST/FIRE buttons so steering never blocks them.
+    // Mobile: the canvas is a virtual steering joystick. A drag may begin
+    // anywhere on the canvas; DOM controls above it own their own touch starts.
     // The steering finger is tracked by identifier so a second touch (a button)
     // can never hijack it.
-    const onSteerSide = (clientX) => {
-      const mid = window.innerWidth * 0.5;
-      // Default (right-handed): steer on the RIGHT. Left-handed: steer on the LEFT.
-      return leftHanded ? clientX < mid : clientX > mid;
-    };
     canvas.addEventListener("touchstart", (e) => {
       if (touchControl === "arrows") return; // arrows mode steers via buttons, not drag
       if (joystick.id !== null) return;
       const rect = canvas.getBoundingClientRect();
       for (const t of e.changedTouches) {
-        if (!onSteerSide(t.clientX)) continue; // leave the action side for buttons
         joystick.id = t.identifier;
         joystick.active = true;
         usingTouch = true;
@@ -3115,20 +3405,58 @@
     // Dedicated mobile BOOST (hold) and FIRE (tap) buttons.
     const boostBtn = document.getElementById("arenaBoostBtn");
     if (boostBtn) {
-      const startBoost = (e) => { if (e) e.preventDefault(); boosting = true; boostBtn.classList.add("active"); };
-      const stopBoost = (e) => { if (e) e.preventDefault(); boosting = false; boostBtn.classList.remove("active"); };
+      const startBoost = (e) => {
+        if (e) e.preventDefault();
+        if (!player || !player.alive || player.mass <= 5 || paused) return;
+        boosting = true;
+        boostBtn.classList.add("active");
+        boostBtn.setAttribute("aria-pressed", "true");
+      };
+      const stopBoost = (e) => {
+        if (e) e.preventDefault();
+        boosting = false;
+        boostBtn.classList.remove("active");
+        boostBtn.setAttribute("aria-pressed", "false");
+      };
       boostBtn.addEventListener("touchstart", startBoost, { passive: false });
       boostBtn.addEventListener("touchend", stopBoost, { passive: false });
       boostBtn.addEventListener("touchcancel", stopBoost, { passive: false });
       boostBtn.addEventListener("mousedown", startBoost);
       boostBtn.addEventListener("mouseup", stopBoost);
       boostBtn.addEventListener("mouseleave", stopBoost);
+      // These are real <button>s in the tab order, so a screen-reader double-tap
+      // (which dispatches click, not touchstart) and Enter/Space have to work.
+      // Hold semantics do not survive a click, so give it a short timed pulse.
+      // detail === 0 means keyboard or assistive tech: a real touch or mouse press
+      // also emits a click, and without this guard every ordinary tap on BOOST
+      // bought an extra 600ms of boost after the player had already let go.
+      boostBtn.addEventListener("click", (e) => {
+        if (!e || e.detail !== 0) return;
+        e.preventDefault();
+        if (boosting) return;   // a real hold is already in progress
+        startBoost();
+        setTimeout(stopBoost, 600);
+      });
     }
     const fireBtn = document.getElementById("arenaFireBtn");
     if (fireBtn) {
-      const doFire = (e) => { if (e) e.preventDefault(); usingTouch = true; fireMissile(); };
+      const doFire = (e) => {
+        if (e) e.preventDefault();
+        usingTouch = true;
+        fireBtn.classList.add("active");
+        fireBtn.setAttribute("aria-pressed", "true");
+        fireMissile();
+        setTimeout(() => {
+          fireBtn.classList.remove("active");
+          fireBtn.setAttribute("aria-pressed", "false");
+        }, 100);
+      };
       fireBtn.addEventListener("touchstart", doFire, { passive: false });
       fireBtn.addEventListener("mousedown", doFire);
+      // mousedown does not fire for an assistive-technology activation; click does.
+      fireBtn.addEventListener("click", (e) => {
+        if (e && e.detail === 0) doFire(e);   // detail 0 = keyboard / AT, not a real mouse
+      });
     }
 
     // Optional on-screen turn arrows (an alternative to the drag joystick).
@@ -3142,6 +3470,12 @@
       btn.addEventListener("mousedown", press);
       btn.addEventListener("mouseup", release);
       btn.addEventListener("mouseleave", release);
+      btn.addEventListener("click", (e) => {
+        if (e && e.detail !== 0) return;      // real mouse already handled above
+        e.preventDefault();
+        press();
+        setTimeout(release, 220);
+      });
     };
     bindArrow(document.getElementById("arenaLeftBtn"), "left");
     bindArrow(document.getElementById("arenaRightBtn"), "right");
@@ -3149,6 +3483,7 @@
     // Keyboard: A/D or Left/Right to steer; W/Up (or Shift) to boost forward.
     // Esc or P pauses; while paused, steering input is ignored.
     window.addEventListener("keydown", (e) => {
+      if (isTypingTarget(e.target)) return;
       if (!running) return;
       if (e.code === "Escape" || e.code === "KeyP") {
         const deathOpen = !document.getElementById("arenaDeath")?.hidden;
@@ -3164,14 +3499,15 @@
       if (e.code === "KeyW" || e.code === "ArrowUp" || e.code === "ShiftLeft" || e.code === "ShiftRight") { boosting = true; e.preventDefault(); }
     });
     window.addEventListener("keyup", (e) => {
+      if (isTypingTarget(e.target)) return;
       if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
       if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
       if (e.code === "KeyW" || e.code === "ArrowUp" || e.code === "ShiftLeft" || e.code === "ShiftRight") boosting = false;
     });
 
-    // Pause lives on the rail button (top centre, outside both steering halves)
-    // and on Esc/P. Quitting a live run goes through the pause overlay with a
-    // two-tap confirm, so a mis-grab can never end a run (UX-03/UX-04).
+    // Pause lives on the top-centre rail button and on Esc/P. DOM hit testing
+    // keeps it separate from canvas steering. Quitting a live run goes through
+    // the pause overlay with a two-tap confirm, so a mis-grab cannot end a run.
     const pauseBtn = document.getElementById("arenaPauseBtn");
     if (pauseBtn) pauseBtn.addEventListener("click", () => setPaused(!paused));
     const resumeBtn = document.getElementById("arenaResumeBtn");
@@ -3213,23 +3549,18 @@
     const exitDeadBtn = document.getElementById("arenaExitDead");
     if (exitDeadBtn) exitDeadBtn.addEventListener("click", () => { stop(); document.body.classList.remove("is-playing"); if (window.refreshBestLine) window.refreshBestLine(); });
 
-    const settingsToggle = document.getElementById("arenaSettingsToggle");
-    const settingsPanel = document.getElementById("arenaSettingsPanel");
-    if (settingsToggle && settingsPanel && !window.__arenaSettingsWired) {
-      window.__arenaSettingsWired = true;
-      settingsToggle.addEventListener("click", () => { settingsPanel.hidden = !settingsPanel.hidden; });
-    }
     wireSetting("arenaSoundOn", "arenaSoundOn", (v) => {
       soundOn = v;
       sound.setMuted(!v);
-      if (v) {
+      if (v && !paused) {
         sound.resume();
         sound.startAmbient(env.name, weather);
       }
     });
-    wireSetting("arenaShowFps", "arenaShowFps", (v) => { showFps = v; });
-    wireQualitySetting();
-    wireSetting("arenaReducedMotion", "arenaReducedMotion", (v) => { reducedMotion = v; });
+    wireSetting("arenaReducedMotion", "arenaReducedMotion", (v) => {
+      reducedMotion = v;
+      root.classList.toggle("arena-reduced-motion", reducedMotion);
+    });
 
     // In-game phone-control switches (apply live).
     const tcSel = document.getElementById("arenaTouchControlSel");
@@ -3250,14 +3581,6 @@
         root.classList.toggle("arena-left", leftHanded);
       });
     }
-    const fpsSel = document.getElementById("arenaMaxFpsSel");
-    if (fpsSel) {
-      fpsSel.addEventListener("change", () => {
-        maxFps = parseInt(fpsSel.value, 10) || 0;
-        localStorage.setItem("arenaMaxFps", String(maxFps));
-      });
-    }
-
     const hintDismiss = document.getElementById("arenaHintDismiss");
     if (hintDismiss) {
       hintDismiss.addEventListener("click", () => {
@@ -3267,7 +3590,20 @@
       });
     }
 
-    window.addEventListener("resize", () => { if (running) resize(); });
+    // Coalesce resize into one rAF. Each resize() reallocates the main canvas
+    // (900x2000x4 = 7.2 MB) and rebuilds a 2560x2560 scenery canvas, and a phone
+    // showing or hiding its URL bar fires this continuously. Measured 2026-08-14:
+    // 30 events cost 77.2 ms, 72.5 ms of it rebuilding scenery. Same pending-flag
+    // shape client.js already uses for classicResizePending.
+    let resizePending = false;
+    window.addEventListener("resize", () => {
+      if (!running || resizePending) return;
+      resizePending = true;
+      requestAnimationFrame(() => {
+        resizePending = false;
+        if (running) resize();
+      });
+    });
   }
 
   function resize() {
@@ -3357,7 +3693,15 @@
     return `rgba(${(v >> 16) & 255}, ${(v >> 8) & 255}, ${v & 255}, ${a})`;
   }
 
-  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  // sqrt(dx*dx+dy*dy) rather than Math.hypot: this runs ~10,400 times a frame
+  // (the trail trim and buildBody's resample), and hypot pays for overflow-safe
+  // scaling and a varargs path we never need. World coords are bounded by
+  // +/-2200 and per-frame deltas are a few px, so there is no overflow path.
+  // Measured 2026-08-14: moveSnake 1.167 -> 0.754 ms/frame at CPU x4.
+  function dist(a, b) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
   function easeOut(t) { return 1 - (1 - t) * (1 - t); }
   function isDangerItem(it) { return it && (it.type === "bomb" || it.type === "mushroom"); }
   function aliveBotCount() {
@@ -3412,17 +3756,6 @@
       updateHud();
     }
   }
-  function updateQualityProbe(_dt) {
-    // Auto-downshift removed: respect the player's chosen quality (and their saved
-    // account setting) instead of silently switching tiers mid-game.
-  }
-  function wireQualitySetting() {
-    const el = document.getElementById("arenaQuality");
-    if (!el) return;
-    el.addEventListener("change", () => {
-      applyQualityTier(el.value, true);
-    });
-  }
   function wireSetting(id, key, apply) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -3434,27 +3767,36 @@
   }
   function syncSettingsControls() {
     const soundEl = document.getElementById("arenaSoundOn");
-    const fps = document.getElementById("arenaShowFps");
-    const quality = document.getElementById("arenaQuality");
     const motion = document.getElementById("arenaReducedMotion");
     if (soundEl) soundEl.checked = soundOn;
-    if (fps) fps.checked = showFps;
-    if (quality) quality.value = qualityTier;
     if (motion) motion.checked = reducedMotion;
     const tcSel = document.getElementById("arenaTouchControlSel");
     if (tcSel) tcSel.value = touchControl;
     const lhToggle = document.getElementById("arenaLeftHandedToggle");
     if (lhToggle) lhToggle.checked = leftHanded;
-    const fpsSel = document.getElementById("arenaMaxFpsSel");
-    if (fpsSel) fpsSel.value = String(maxFps);
-    const fpsEl = document.getElementById("arenaFps");
-    if (fpsEl) fpsEl.hidden = !showFps;
   }
 
   function maybeShowControlsHint() {
     const hint = document.getElementById("arenaHint");
     if (!hint) return;
-    hint.hidden = localStorage.getItem("arenaControlsSeen") === "true";
+    const runs = Number(localStorage.getItem("arenaControlsRuns") || 0);
+    const seen = localStorage.getItem("arenaControlsSeen") === "true";
+    if (isPhoneLayout()) {
+      hint.hidden = true;
+      // Phones get no persistent tutorial card (it covered both buttons it was
+      // describing), so this message is the ONLY explanation of the touch model a
+      // phone player ever gets. It used to be shown once and the "seen" flag was
+      // written BEFORE it displayed, so missing it - mid-fade, during load, while
+      // looking at the snake - meant never being told at all. Show it on the first
+      // three runs, and only count a run once the message has actually been queued.
+      if (!seen && runs < 3) {
+        showToast("DRAG ANYWHERE TO STEER");
+        localStorage.setItem("arenaControlsRuns", String(runs + 1));
+        if (runs + 1 >= 3) localStorage.setItem("arenaControlsSeen", "true");
+      }
+      return;
+    }
+    hint.hidden = seen;
   }
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
   function normalizeAngle(a) {
